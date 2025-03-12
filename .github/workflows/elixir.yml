@@ -20,16 +20,12 @@ jobs:
     strategy:
       matrix:
         include:
-          # Latest release
           - elixir: '1.18.1'
             otp: '27.0'
-          # Latest stable
           - elixir: '1.16.0'
             otp: '26.2'
-          # Previous stable
           - elixir: '1.15.7'
             otp: '25.3'
-          # Minimum supported
           - elixir: '1.13.4'
             otp: '24.3'
     env:

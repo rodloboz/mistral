@@ -67,5 +67,90 @@ defmodule MistralTest do
       assert choice["message"]["role"] == "assistant"
       assert is_binary(choice["message"]["content"])
     end
+
+    test "streams a response for a given prompt" do
+      client = Mock.client(&Mock.stream(&1, :chat_completion))
+
+      assert {:ok, stream} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [
+                   %{
+                     role: "user",
+                     content: "Write a haiku that starts with 'Waves crash against stone…'"
+                   }
+                 ],
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert length(res) > 0
+
+      model_chunk =
+        Enum.find(res, fn chunk ->
+          Map.get(chunk, "model") == "mistral-small-latest"
+        end)
+
+      assert model_chunk != nil
+
+      content_chunk =
+        Enum.find(res, fn chunk ->
+          choices = Map.get(chunk, "choices", [])
+
+          Enum.any?(choices, fn choice ->
+            choice = Map.get(choice, "delta", %{})
+            Map.has_key?(choice, "content")
+          end)
+        end)
+
+      assert content_chunk != nil
+    end
+
+    test "streams to a process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :chat_completion))
+
+      assert {:ok, task} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [
+                   %{
+                     role: "user",
+                     content: "Write a haiku that starts with 'Waves crash against stone…'"
+                   }
+                 ],
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert length(chunks) > 0
+
+      model_chunk =
+        Enum.find(chunks, fn chunk ->
+          Map.get(chunk, "model") == "mistral-small-latest"
+        end)
+
+      assert model_chunk != nil
+
+      GenServer.stop(pid)
+    end
   end
 end
