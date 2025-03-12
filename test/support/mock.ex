@@ -29,6 +29,76 @@ defmodule Mistral.Mock do
     }
   }
 
+  @stream_mocks %{
+    chat_completion: [
+      %{
+        "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-small-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "role" => "assistant"
+            },
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-small-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => "Waves crash against stone"
+            },
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-small-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => "\nEchoes through eternal time"
+            },
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-small-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => "\nNature's harmony"
+            },
+            "finish_reason" => "stop"
+          }
+        ],
+        "usage" => %{
+          "prompt_tokens" => 16,
+          "completion_tokens" => 18,
+          "total_tokens" => 34
+        }
+      }
+    ]
+  }
+
   @spec client(function()) :: Mistral.client()
   def client(plug) when is_function(plug, 1) do
     struct(Mistral, req: Req.new(plug: plug))
@@ -53,5 +123,20 @@ defmodule Mistral.Mock do
         }
       })
     )
+  end
+
+  @spec stream(Plug.Conn.t(), atom()) :: Plug.Conn.t()
+  def stream(conn, name) when is_atom(name) do
+    conn =
+      conn
+      |> put_resp_header("content-type", "text/event-stream")
+      |> send_chunked(200)
+
+    Enum.reduce(@stream_mocks[name], conn, fn chunk, conn ->
+      {:ok, conn} = chunk(conn, "data: #{Jason.encode!(chunk)}\n\n")
+      conn
+    end)
+    |> chunk("data: [DONE]\n\n")
+    |> elem(1)
   end
 end
