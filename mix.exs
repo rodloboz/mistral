@@ -4,10 +4,24 @@ defmodule Mistral.MixProject do
   def project do
     [
       app: :mistral,
+      name: "Mistral",
+      description: "A nifty little library for working with Mistral in Elixir.",
       version: "0.1.0",
       elixir: "~> 1.18",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: [
+        main: "Mistral"
+      ],
+      package: [
+        name: "mistral",
+        files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
+        licenses: ["MIT"],
+        links: %{
+          "GitHub" => "https://github.com/rodloboz/mistral-ex"
+        }
+      ]
     ]
   end
 
@@ -18,11 +32,16 @@ defmodule Mistral.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:bandit, "~> 1.6", only: :test},
+      {:ex_doc, "~> 0.36", only: :dev, runtime: false},
+      {:nimble_options, "~> 1.1"},
+      {:plug, "~> 1.16"},
+      {:req, "~> 0.5"}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test"]
+  defp elixirc_paths(_), do: ["lib"]
 end
