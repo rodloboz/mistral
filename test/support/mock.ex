@@ -1,4 +1,6 @@
 defmodule Mistral.Mock do
+  @moduledoc false
+
   alias Plug.Conn.Status
   import Plug.Conn
 
