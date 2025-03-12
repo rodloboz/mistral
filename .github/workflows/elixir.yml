@@ -58,23 +58,6 @@ jobs:
       - run: mix test
       - run: mix coveralls.json --warnings-as-errors
 
-      - name: Generate Coverage Badge
-        run: |
-          COVERAGE=$(jq '.coverage' cover/excoveralls.json)
-          echo '{"schemaVersion": 1, "label": "coverage", "message": "'"$COVERAGE%"'", "color": "green"}' > badge.json
-
-      - name: Upload Coverage Badge
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git checkout main
-          mv badge.json coverage-badge.json
-          git add coverage-badge.json
-          git commit -m "Update coverage badge"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   static:
     name: Static checks (format, credo)
     env:
