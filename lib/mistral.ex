@@ -42,7 +42,7 @@ defmodule Mistral do
   If given, a keyword list of options will be passed to `Req.new/1`.
   """
   @spec init() :: client()
-  def init(), do: init([])
+  def init, do: init([])
 
   @spec init(keyword()) :: client()
   def init(opts) when is_list(opts) do
@@ -227,6 +227,31 @@ defmodule Mistral do
   end
 
   defp stream_end(%Task{ref: ref}), do: Process.demonitor(ref, [:flush])
+
+  @doc """
+  Generate embeddings for the given input using a specified model.
+
+  ## Options
+
+  - `:model` - The model to use for generating embeddings (default: "mistral-embed")
+  - `:input` - Text or list of texts to generate embeddings for
+
+  ## Examples
+
+      iex> Mistral.embed(client, input: "Hello, world!")
+      {:ok, %{"data" => [%{"embedding" => [...]}]}}
+
+      iex> Mistral.embed(client, input: ["First text", "Second text"])
+      {:ok, %{"data" => [%{"embedding" => [...]}, %{"embedding" => [...]}]}}
+  """
+  @spec embed(client(), keyword()) :: response()
+  def embed(%__MODULE__{} = client, params) when is_list(params) do
+    params = Keyword.put_new(params, :model, "mistral-embed")
+
+    client
+    |> req(:post, "/embeddings", json: Enum.into(params, %{}))
+    |> res()
+  end
 
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
   defp req(%__MODULE__{req: req}, method, url, opts) do
