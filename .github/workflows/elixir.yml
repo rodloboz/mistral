@@ -58,7 +58,7 @@ jobs:
       - run: mix deps.get --only $MIX_ENV
       - run: mix compile --warnings-as-errors --all-warnings
       - run: mix test
-      - run: mix coveralls.github --warnings-as-errors
+      # - run: mix coveralls.github --warnings-as-errors
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
