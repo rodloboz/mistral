@@ -58,14 +58,6 @@ jobs:
       - run: mix test
       - run: mix coveralls.json --warnings-as-errors
 
-      - name: Post Coverage Comment
-        run: |
-          COVERAGE=$(jq '.coverage' cover/excoveralls.json)
-          echo "🔍 Test Coverage: **$COVERAGE%**" > coverage_comment.md
-          gh pr comment ${{ github.event.pull_request.number }} --body "$(cat coverage_comment.md)"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Generate Coverage Badge
         run: |
           COVERAGE=$(jq '.coverage' cover/excoveralls.json)
