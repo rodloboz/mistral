@@ -26,6 +26,38 @@ defmodule Mistral.Mock do
         "completion_tokens" => 18,
         "total_tokens" => 34
       }
+    },
+    tool_use: %{
+      "id" => "cmpl-tool-use-example",
+      "object" => "chat.completion",
+      "created" => 1_702_256_328,
+      "model" => "mistral-large-latest",
+      "choices" => [
+        %{
+          "index" => 0,
+          "message" => %{
+            "role" => "assistant",
+            "content" => "",
+            "tool_calls" => [
+              %{
+                "type" => "function",
+                "function" => %{
+                  "name" => "jay_dilla_facts",
+                  "arguments" => %{
+                    "question" => "Why is *Donuts* considered a masterpiece?"
+                  }
+                }
+              }
+            ]
+          },
+          "finish_reason" => "tool_calls"
+        }
+      ],
+      "usage" => %{
+        "prompt_tokens" => 20,
+        "completion_tokens" => 15,
+        "total_tokens" => 35
+      }
     }
   }
 
@@ -39,9 +71,7 @@ defmodule Mistral.Mock do
         "choices" => [
           %{
             "index" => 0,
-            "delta" => %{
-              "role" => "assistant"
-            },
+            "delta" => %{"role" => "assistant"},
             "finish_reason" => nil
           }
         ]
@@ -54,9 +84,7 @@ defmodule Mistral.Mock do
         "choices" => [
           %{
             "index" => 0,
-            "delta" => %{
-              "content" => "Waves crash against stone"
-            },
+            "delta" => %{"content" => "Waves crash against stone"},
             "finish_reason" => nil
           }
         ]
@@ -69,9 +97,7 @@ defmodule Mistral.Mock do
         "choices" => [
           %{
             "index" => 0,
-            "delta" => %{
-              "content" => "\nEchoes through eternal time"
-            },
+            "delta" => %{"content" => "\nEchoes through eternal time"},
             "finish_reason" => nil
           }
         ]
@@ -84,9 +110,7 @@ defmodule Mistral.Mock do
         "choices" => [
           %{
             "index" => 0,
-            "delta" => %{
-              "content" => "\nNature's harmony"
-            },
+            "delta" => %{"content" => "\nNature's harmony"},
             "finish_reason" => "stop"
           }
         ],
@@ -94,6 +118,40 @@ defmodule Mistral.Mock do
           "prompt_tokens" => 16,
           "completion_tokens" => 18,
           "total_tokens" => 34
+        }
+      }
+    ],
+    tool_use: [
+      %{
+        "id" => "cmpl-tool-use-example",
+        "object" => "chat.completion",
+        "created" => 1_702_256_328,
+        "model" => "mistral-large-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "message" => %{
+              "role" => "assistant",
+              "content" => "",
+              "tool_calls" => [
+                %{
+                  "type" => "function",
+                  "function" => %{
+                    "name" => "jay_dilla_facts",
+                    "arguments" => %{
+                      "question" => "Why is *Donuts* considered a masterpiece?"
+                    }
+                  }
+                }
+              ]
+            },
+            "finish_reason" => "tool_calls"
+          }
+        ],
+        "usage" => %{
+          "prompt_tokens" => 20,
+          "completion_tokens" => 15,
+          "total_tokens" => 35
         }
       }
     ]

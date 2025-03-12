@@ -79,6 +79,10 @@ defmodule Mistral do
   - `:temperature` - Controls randomness (0.0 to 1.0)
   - `:max_tokens` - Maximum number of tokens to generate
   - `:stream` - When true, returns a stream of partial response chunks
+  - `:tools` - List of tools available to the model. Each tool must be a map with:
+    * `:type` set to "function"
+    * `:function` containing function details
+  - `:tool_choice` - How to choose tools
 
   ## Examples
 
@@ -98,10 +102,40 @@ defmodule Mistral do
       ...> ])
       iex> Enum.to_list(stream)
       [%{"choices" => [%{"delta" => ...}]}, ...]
+
+      ## Tool Example
+
+      iex> Mistral.chat(client, [
+      ...>   model: "mistral-large-latest",
+      ...>   messages: [%{role: "user", content: "What is the weather?"}],
+      ...>   tools: [
+      ...>     %{
+      ...>       type: "function",
+      ...>       function: %{
+      ...>         name: "get_weather",
+      ...>         description: "Fetches current weather",
+      ...>         parameters: %{type: "object", properties: %{}}
+      ...>       }
+      ...>     }
+      ...>   ],
+      ...>   tool_choice: "auto"
+      ...> ])
   """
   @spec chat(client(), keyword()) :: response()
   def chat(%__MODULE__{} = client, params) when is_list(params) do
     {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+    params =
+      if Keyword.has_key?(params, :tools) do
+        Keyword.update(params, :tools, [], fn tools ->
+          Enum.map(tools, fn
+            %{type: "function", function: _} = tool -> tool
+            _ -> raise ArgumentError, "Tools must have type 'function' and a 'function' key"
+          end)
+        end)
+      else
+        params
+      end
 
     if stream_opt do
       params = Keyword.put(params, :stream, true)

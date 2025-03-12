@@ -153,4 +153,117 @@ defmodule MistralTest do
       GenServer.stop(pid)
     end
   end
+
+  describe "tool use" do
+    test "generates a response with tool use" do
+      client = Mock.client(&Mock.respond(&1, :tool_use))
+
+      assert {:ok, res} =
+               Mistral.chat(client,
+                 model: "mistral-large-latest",
+                 messages: [
+                   %{role: "user", content: "Why is *Donuts* considered a masterpiece?"}
+                 ],
+                 tools: [
+                   %{
+                     type: "function",
+                     function: %{
+                       name: "jay_dilla_facts",
+                       description: "Drops knowledge bombs about Jay Dilla.",
+                       parameters: %{
+                         type: "object",
+                         properties: %{
+                           question: %{
+                             type: "string",
+                             description: "A question about Jay Dilla."
+                           }
+                         },
+                         required: ["question"]
+                       }
+                     }
+                   }
+                 ],
+                 tool_choice: "auto"
+               )
+
+      tool_calls =
+        res["choices"]
+        |> Enum.at(0)
+        |> get_in(["message", "tool_calls"])
+
+      assert is_list(tool_calls)
+      tool_call = Enum.at(tool_calls, 0)
+
+      assert get_in(tool_call, ["function", "name"]) == "jay_dilla_facts"
+
+      assert get_in(tool_call, ["function", "arguments", "question"]) ==
+               "Why is *Donuts* considered a masterpiece?"
+    end
+
+    test "streams a response with tool use" do
+      client = Mock.client(&Mock.stream(&1, :tool_use))
+
+      assert {:ok, stream} =
+               Mistral.chat(client,
+                 model: "mistral-large-latest",
+                 messages: [
+                   %{role: "user", content: "Why is *Donuts* considered a masterpiece?"}
+                 ],
+                 tools: [
+                   %{
+                     type: "function",
+                     function: %{
+                       name: "jay_dilla_facts",
+                       description: "Drops knowledge bombs about Jay Dilla.",
+                       parameters: %{
+                         type: "object",
+                         properties: %{
+                           question: %{
+                             type: "string",
+                             description: "A question about Jay Dilla."
+                           }
+                         },
+                         required: ["question"]
+                       }
+                     }
+                   }
+                 ],
+                 tool_choice: "auto",
+                 stream: true
+               )
+
+      res = Enum.to_list(stream)
+
+      tool_use_chunks =
+        Enum.filter(res, fn chunk ->
+          choices = chunk["choices"] || []
+
+          Enum.any?(choices, fn choice ->
+            choice["message"]["tool_calls"] != nil
+          end)
+        end)
+
+      assert length(tool_use_chunks) > 0
+
+      tool_calls =
+        res
+        |> Enum.filter(fn chunk ->
+          choices = chunk["choices"] || []
+
+          Enum.any?(choices, fn choice ->
+            choice["message"]["tool_calls"] != nil
+          end)
+        end)
+        |> Enum.at(0)
+        |> get_in(["choices", Access.at(0), "message", "tool_calls"])
+
+      assert is_list(tool_calls)
+      tool_call = Enum.at(tool_calls, 0)
+
+      assert get_in(tool_call, ["function", "name"]) == "jay_dilla_facts"
+
+      assert get_in(tool_call, ["function", "arguments", "question"]) ==
+               "Why is *Donuts* considered a masterpiece?"
+    end
+  end
 end
