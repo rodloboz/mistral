@@ -1,5 +1,7 @@
 # Mistral
 
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/cover/excoveralls.json)
+
 A nifty Elixir client for the Mistral AI API, providing a simple and convenient way to integrate Mistral's powerful language models into your Elixir applications.
 
 ## Features
