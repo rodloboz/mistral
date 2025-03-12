@@ -42,6 +42,7 @@ defmodule Mistral.MixProject do
   defp deps do
     [
       {:bandit, "~> 1.6", only: :test},
+      {:castore, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.16", only: :test},
       {:ex_doc, "~> 0.36", only: :dev, runtime: false},
