@@ -58,6 +58,76 @@ defmodule Mistral.Mock do
         "completion_tokens" => 15,
         "total_tokens" => 35
       }
+    },
+    embedding: %{
+      "id" => "emb-123456",
+      "object" => "list",
+      "data" => [
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.1234,
+            0.5678,
+            0.9012,
+            0.3456,
+            0.7890,
+            0.2345,
+            0.6789,
+            0.0123,
+            0.4567,
+            0.8901
+          ],
+          "index" => 0
+        }
+      ],
+      "model" => "mistral-embed",
+      "usage" => %{
+        "prompt_tokens" => 8,
+        "total_tokens" => 8
+      }
+    },
+    embeddings: %{
+      "id" => "emb-123456",
+      "object" => "list",
+      "data" => [
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.1234,
+            0.5678,
+            0.9012,
+            0.3456,
+            0.7890,
+            0.2345,
+            0.6789,
+            0.0123,
+            0.4567,
+            0.8901
+          ],
+          "index" => 0
+        },
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.4321,
+            0.8765,
+            0.2109,
+            0.6543,
+            0.0987,
+            0.5432,
+            0.9876,
+            0.3210,
+            0.7654,
+            0.1098
+          ],
+          "index" => 1
+        }
+      ],
+      "model" => "mistral-embed",
+      "usage" => %{
+        "prompt_tokens" => 16,
+        "total_tokens" => 16
+      }
     }
   }
 
@@ -154,7 +224,77 @@ defmodule Mistral.Mock do
           "total_tokens" => 35
         }
       }
-    ]
+    ],
+    embedding: %{
+      "id" => "emb-123456",
+      "object" => "list",
+      "data" => [
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.1234,
+            0.5678,
+            0.9012,
+            0.3456,
+            0.7890,
+            0.2345,
+            0.6789,
+            0.0123,
+            0.4567,
+            0.8901
+          ],
+          "index" => 0
+        }
+      ],
+      "model" => "mistral-embed",
+      "usage" => %{
+        "prompt_tokens" => 8,
+        "total_tokens" => 8
+      }
+    },
+    embeddings: %{
+      "id" => "emb-123456",
+      "object" => "list",
+      "data" => [
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.1234,
+            0.5678,
+            0.9012,
+            0.3456,
+            0.7890,
+            0.2345,
+            0.6789,
+            0.0123,
+            0.4567,
+            0.8901
+          ],
+          "index" => 0
+        },
+        %{
+          "object" => "embedding",
+          "embedding" => [
+            0.4321,
+            0.8765,
+            0.2109,
+            0.6543,
+            0.0987,
+            0.5432,
+            0.9876,
+            0.3210,
+            0.7654,
+            0.1098
+          ],
+          "index" => 1
+        }
+      ],
+      "model" => "mistral-embed",
+      "usage" => %{
+        "prompt_tokens" => 16,
+        "total_tokens" => 16
+      }
+    }
   }
 
   @spec client(function()) :: Mistral.client()

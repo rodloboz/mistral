@@ -152,9 +152,7 @@ defmodule MistralTest do
 
       GenServer.stop(pid)
     end
-  end
 
-  describe "tool use" do
     test "generates a response with tool use" do
       client = Mock.client(&Mock.respond(&1, :tool_use))
 
@@ -264,6 +262,38 @@ defmodule MistralTest do
 
       assert get_in(tool_call, ["function", "arguments", "question"]) ==
                "Why is *Donuts* considered a masterpiece?"
+    end
+  end
+
+  describe "embed/2" do
+    test "generates an embedding for a single input" do
+      client = Mock.client(&Mock.respond(&1, :embedding))
+
+      assert {:ok, res} = Mistral.embed(client, input: "Why is the sky blue?")
+
+      assert res["model"] == "mistral-embed"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 1
+
+      first_embedding = List.first(res["data"])
+      assert is_list(first_embedding["embedding"])
+      assert length(first_embedding["embedding"]) > 0
+    end
+
+    test "generates embeddings for multiple inputs" do
+      client = Mock.client(&Mock.respond(&1, :embeddings))
+
+      assert {:ok, res} =
+               Mistral.embed(client, input: ["Why is the sky blue?", "Why is the grass green?"])
+
+      assert res["model"] == "mistral-embed"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+
+      Enum.each(res["data"], fn embedding ->
+        assert is_list(embedding["embedding"])
+        assert length(embedding["embedding"]) > 0
+      end)
     end
   end
 end
