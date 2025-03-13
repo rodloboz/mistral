@@ -1,8 +1,9 @@
 # Mistral
 
-![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/cover/excoveralls.json)
+![GitHub CI](https://github.com/rodloboz/mistral/actions/workflows/all-checks-pass.yml/badge.svg)
 
-A nifty Elixir client for the Mistral AI API, providing a simple and convenient way to integrate Mistral's powerful language models into your Elixir applications.
+
+A nifty Elixir client for the [Mistral AI API](https://docs.mistral.ai/api/), providing a simple and convenient way to integrate Mistral's powerful language models into your Elixir applications.
 
 ## Features
 
@@ -83,6 +84,13 @@ A huge thanks to the author of these projects for their work in creating robust 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Roadmap
+
+- [ ] OCR (Optical Character Recognition) Support
+- [ ] Batch Processing Support
+- [ ] Advanced Streaming Improvements
+- [ ] Enhanced Error Handling
 
 ## License
 
