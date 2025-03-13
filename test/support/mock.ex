@@ -10,7 +10,7 @@ defmodule Mistral.Mock do
     chat_completion: %{
       "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
       "object" => "chat.completion",
-      "created" => 1_702_256_327,
+      "created" => 1702256327,
       "model" => "mistral-small-latest",
       "choices" => [
         %{
@@ -135,13 +135,41 @@ defmodule Mistral.Mock do
       "id" => "file-abc123",
       "object" => "file",
       "bytes" => 12345,
-      "created_at" => 1_741_023_462,
+      "created_at" => 1741023462,
       "filename" => "dummy.pdf",
       "purpose" => "ocr",
       "sample_type" => "ocr_input",
       "source" => "upload",
       "deleted" => false,
       "num_lines" => nil
+    },
+    ocr: %{
+      "model" => "mistral-ocr-latest",
+      "pages" => [
+        %{
+          "index" => 0,
+          "markdown" => "some content",
+          "images" => [
+            %{
+              "id" => "img-123456",
+              "top_left_x" => 0,
+              "top_left_y" => 0,
+              "bottom_right_x" => 0,
+              "bottom_right_y" => 0,
+              "image_base64" => "base64representation"
+            }
+          ],
+          "dimensions" => %{
+            "dpi" => 0,
+            "height" => 0,
+            "width" => 0
+          }
+        }
+      ],
+      "usage_info" => %{
+        "pages_processed" => 0,
+        "doc_size_bytes" => 0
+      }
     }
   }
 
@@ -150,7 +178,7 @@ defmodule Mistral.Mock do
       %{
         "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
         "object" => "chat.completion.chunk",
-        "created" => 1_702_256_327,
+        "created" => 1702256327,
         "model" => "mistral-small-latest",
         "choices" => [
           %{
@@ -163,7 +191,7 @@ defmodule Mistral.Mock do
       %{
         "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
         "object" => "chat.completion.chunk",
-        "created" => 1_702_256_327,
+        "created" => 1702256327,
         "model" => "mistral-small-latest",
         "choices" => [
           %{
@@ -176,7 +204,7 @@ defmodule Mistral.Mock do
       %{
         "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
         "object" => "chat.completion.chunk",
-        "created" => 1_702_256_327,
+        "created" => 1702256327,
         "model" => "mistral-small-latest",
         "choices" => [
           %{
@@ -189,7 +217,7 @@ defmodule Mistral.Mock do
       %{
         "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
         "object" => "chat.completion.chunk",
-        "created" => 1_702_256_327,
+        "created" => 1702256327,
         "model" => "mistral-small-latest",
         "choices" => [
           %{

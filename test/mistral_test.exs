@@ -459,4 +459,70 @@ defmodule MistralTest do
       assert error.type == "not_found"
     end
   end
+
+  describe "ocr/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :ocr))
+      {:ok, client: client}
+    end
+
+    test "validates parameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.ocr(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.ocr(client, model: "mistral-ocr-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.ocr(client,
+                 model: "mistral-ocr-latest",
+                 document: %{type: "invalid_type", document_url: "https://example.com/file.pdf"}
+               )
+    end
+
+    test "performs OCR on a document URL", %{client: client} do
+      assert {:ok, res} =
+               Mistral.ocr(client,
+                 id: "ocr-123456789",
+                 model: "mistral-ocr-latest",
+                 document: %{type: "document_url", document_url: "https://example.com/file.pdf"}
+               )
+
+      assert res["model"] == "mistral-ocr-latest"
+      assert is_list(res["pages"])
+
+      assert Enum.all?(res["pages"], fn page ->
+               is_map(page) and Map.has_key?(page, "markdown")
+             end)
+    end
+
+    test "performs OCR on an image URL", %{client: client} do
+      assert {:ok, res} =
+               Mistral.ocr(client,
+                 id: "ocr-123456789",
+                 model: "mistral-ocr-latest",
+                 document: %{type: "image_url", image_url: "https://example.com/image.png"}
+               )
+
+      assert res["model"] == "mistral-ocr-latest"
+      assert is_list(res["pages"])
+
+      assert Enum.all?(res["pages"], fn page ->
+               is_map(page) and Map.has_key?(page, "markdown")
+             end)
+    end
+
+    test "handles API validation error" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, error} =
+               Mistral.ocr(client,
+                 id: "ocr-123456789",
+                 model: "mistral-ocr-latest",
+                 document: %{type: "document_url", document_url: "https://example.com/file.pdf"}
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
 end
