@@ -9,12 +9,14 @@ Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mi
 
 ## Features
 
-- 🚀 Chat Completions
-- 🧩 Function Calling / Tool Use
+- 💬 Chat Completions
+- 🛠 Function Calling / Tool Use
 - 🔢 Embeddings
 - 🌊 Streaming Support
 - 🛡️ Error Handling
-- 📋 Models API
+- ⬆️ File Uploading
+- 📄 OCR
+- 🤖 Models API
 
 ## Installation
 
