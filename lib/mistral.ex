@@ -639,24 +639,63 @@ defmodule Mistral do
   end
 
   @doc """
-  Returns a `Mistral.Models` context struct for accessing model-specific functions.
-
-  This function creates a proxy module for model-related API calls, allowing you
-  to access functions like `list/1` or `get/2` directly through the client without
-  cluttering the main module.
+  Lists all available models.
 
   ## Examples
 
-      iex> client = Mistral.init("your_api_key")
-      iex> models = Mistral.models(client)
-      %Mistral.Models{client: client}
-
-      # List all available models using the models context:
-      iex> models.list()
-      {:ok, %{"data" => [%{"id" => "mistral-small-latest", ...}], ...}}
+      iex> Mistral.list_models(client)
+      {:ok, %{
+        "object" => "list",
+        "data" => [
+          %{
+            "id" => "mistral-small-latest",
+            "object" => "model",
+            "created" => 1711430400,
+            "owned_by" => "mistralai",
+            "capabilities" => %{
+              "completion_chat" => true,
+              "function_calling" => true
+            }
+          }
+        ]
+      }}
   """
-  def models(%__MODULE__{} = client) do
-    %Mistral.Models{client: client}
+  @spec list_models(client()) :: response()
+  def list_models(%__MODULE__{} = client) do
+    client
+    |> req(:get, "/models")
+    |> res()
+  end
+
+  @doc """
+  Retrieves information about a specific model by its ID.
+
+  ## Parameters
+
+    - `client`: A `Mistral.client()` struct.
+    - `model_id`: The ID of the model to retrieve (e.g. "mistral-small-latest").
+
+  ## Examples
+
+      iex> Mistral.get_model(client, "mistral-small-latest")
+      {:ok, %{
+        "id" => "mistral-small-latest",
+        "object" => "model",
+        "created" => 1711430400,
+        "owned_by" => "mistralai",
+        "capabilities" => %{
+          "completion_chat" => true,
+          "function_calling" => true,
+          "vision" => false
+        },
+        "name" => "Mistral Small"
+      }}
+  """
+  @spec get_model(client(), String.t()) :: response()
+  def get_model(%__MODULE__{} = client, model_id) when is_binary(model_id) do
+    client
+    |> req(:get, "/models/#{model_id}")
+    |> res()
   end
 
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()

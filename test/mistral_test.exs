@@ -525,4 +525,117 @@ defmodule MistralTest do
       assert error.type == "unprocessable_entity"
     end
   end
+
+  describe "list_models/1" do
+    setup do
+      model_list = %{
+        "object" => "list",
+        "data" => [
+          %{
+            "id" => "mistral-small-latest",
+            "object" => "model",
+            "created" => 1_711_430_400,
+            "owned_by" => "mistralai",
+            "capabilities" => %{
+              "completion_chat" => true,
+              "completion_fim" => false,
+              "function_calling" => true,
+              "fine_tuning" => false,
+              "vision" => false
+            },
+            "name" => "Mistral Small",
+            "description" => "Mistral AI's flagship small model",
+            "max_context_length" => 32_768,
+            "aliases" => ["mistral-small"],
+            "type" => "base"
+          },
+          %{
+            "id" => "mistral-large-latest",
+            "object" => "model",
+            "created" => 1_711_430_400,
+            "owned_by" => "mistralai",
+            "capabilities" => %{
+              "completion_chat" => true,
+              "completion_fim" => false,
+              "function_calling" => true,
+              "fine_tuning" => false,
+              "vision" => true
+            },
+            "name" => "Mistral Large",
+            "description" => "Mistral AI's flagship large model",
+            "max_context_length" => 32_768,
+            "aliases" => ["mistral-large"],
+            "type" => "base"
+          }
+        ]
+      }
+
+      Mock.add_mock(:list_models, model_list)
+
+      :ok
+    end
+
+    test "lists all available models" do
+      client = Mock.client(&Mock.respond(&1, :list_models))
+      assert {:ok, response} = Mistral.list_models(client)
+
+      assert response["object"] == "list"
+      assert is_list(response["data"])
+
+      model = Enum.at(response["data"], 0)
+      assert is_map(model)
+      assert is_binary(model["id"])
+      assert is_map(model["capabilities"])
+    end
+
+    test "handles errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+      assert {:error, error} = Mistral.list_models(client)
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "get_model/2" do
+    setup do
+      model = %{
+        "id" => "mistral-small-latest",
+        "object" => "model",
+        "created" => 1_711_430_400,
+        "owned_by" => "mistralai",
+        "capabilities" => %{
+          "completion_chat" => true,
+          "completion_fim" => false,
+          "function_calling" => true,
+          "fine_tuning" => false,
+          "vision" => false
+        },
+        "name" => "Mistral Small",
+        "description" => "Mistral AI's flagship small model",
+        "max_context_length" => 32_768,
+        "aliases" => ["mistral-small"],
+        "type" => "base"
+      }
+
+      Mock.add_mock(:get_model, model)
+
+      :ok
+    end
+
+    test "retrieves a specific model by ID" do
+      client = Mock.client(&Mock.respond(&1, :get_model))
+      assert {:ok, model} = Mistral.get_model(client, "mistral-small-latest")
+
+      assert model["id"] == "mistral-small-latest"
+      assert model["object"] == "model"
+      assert is_map(model["capabilities"])
+    end
+
+    test "handles model not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+      assert {:error, error} = Mistral.get_model(client, "nonexistent-model")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
 end

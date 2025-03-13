@@ -16,7 +16,7 @@ Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mi
 - 🛡️ Error Handling
 - ⬆️ File Uploading
 - 📄 OCR (Optical Character Recognition)
-- 🤖 Models API
+- 🤖 Models
 
 ## Installation
 
@@ -25,7 +25,7 @@ Add `mistral` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:mistral, "~> 0.2.0"}
+    {:mistral, "~> 0.3.0"}
   ]
 end
 ```
