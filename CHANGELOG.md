@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `upload_file/3` function for uploading files to the Mistral API with support for OCR, fine-tuning, and batch processing purposes.
   - `get_file/2` to retrieve file details.
   - `get_file_url/2` to obtain a signed URL for a file with optional `expiry` parameter validation.
+- **OCR API Support:**
+  - Introduced `Mistral.ocr/2` to process document and image OCR via `/v1/ocr`.
+  - Added `ocr_opts` validation schema for structured request validation.
 
 ## [0.2.0] - 2025-03-13
 
