@@ -45,9 +45,32 @@ defmodule MistralTest do
   end
 
   describe "chat/2" do
-    test "generates a response for a given prompt" do
+    setup do
       client = Mock.client(&Mock.respond(&1, :chat_completion))
+      {:ok, client: client}
+    end
 
+    test "validates parameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.chat(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client, model: "mistral-small-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "invalid", content: "test"}]
+               )
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "test"}],
+                 temperature: 1
+               )
+    end
+
+    test "generates a response for a given prompt", %{client: client} do
       assert {:ok, res} =
                Mistral.chat(client,
                  model: "mistral-small-latest",
@@ -66,6 +89,35 @@ defmodule MistralTest do
       assert choice["finish_reason"] == "stop"
       assert choice["message"]["role"] == "assistant"
       assert is_binary(choice["message"]["content"])
+    end
+
+    test "handles tools parameter correctly", %{client: client} do
+      tools = [
+        %{
+          type: "function",
+          function: %{
+            name: "get_weather",
+            description: "Get the weather",
+            parameters: %{
+              type: "object",
+              properties: %{
+                location: %{
+                  type: "string",
+                  description: "The location to get weather for"
+                }
+              },
+              required: ["location"]
+            }
+          }
+        }
+      ]
+
+      assert {:ok, _} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "What's the weather?"}],
+                 tools: tools
+               )
     end
 
     test "streams a response for a given prompt" do

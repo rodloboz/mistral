@@ -1,11 +1,52 @@
 defmodule Mistral do
   @version Keyword.fetch!(Mix.Project.config(), :version)
   @moduledoc """
+  ![GitHub CI](https://github.com/rodloboz/mistral/actions/workflows/all-checks-pass.yml/badge.svg)
+
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
   Client for the Mistral AI API.
 
   This library provides a simple and convenient way to integrate with Mistral's
   API, allowing you to use their powerful language models in your Elixir applications.
+
+  ## Installation
+
+  Add `mistral` to your list of dependencies in `mix.exs`:
+
+  ```elixir
+  def deps do
+    [
+      {:mistral, "~> #{@version}"}
+    ]
+  end
+  ```
+
+  ## Configuration
+
+  Set your Mistral API key in your config:
+
+  ```elixir
+  config :mistral, :api_key, "your_mistral_api_key"
+  ```
+
+  ## Usage Examples
+
+  ### Chat Completion
+
+  ```elixir
+  {:ok, client} = Mistral.init("your_api_key")
+
+  {:ok, response} = Mistral.chat(client,
+    model: "mistral-small-latest",
+    messages: [
+      %{role: "user", content: "Write a haiku about elixir"}
+    ]
+  )
+  ```
   """
+  use Mistral.Schemas
+  alias Mistral.APIError
 
   defstruct [:req]
 
@@ -21,16 +62,143 @@ defmodule Mistral do
 
   @typedoc false
   @type req_response() ::
-          {:ok, Req.Response.t() | Task.t() | Enumerable.t()}
+          {:ok, Req.Response.t() | Task.t() | Enum.t()}
           | {:error, term()}
+
+  @permissive_map {:map, {:or, [:atom, :string]}, :any}
 
   @default_req_opts [
     base_url: "https://api.mistral.ai/v1",
     headers: [
-      {"user-agent", "mistral-ex/#{@version}"}
+      {"user-agent",
+       "mistral-ex/#{@version} (Elixir/#{System.version()}; OTP/#{System.otp_release()})"}
     ],
     receive_timeout: 60_000
   ]
+
+  schema(:chat_message,
+    role: [
+      type: {:in, ["system", "user", "assistant", "tool"]},
+      required: true,
+      doc: "The role of the message, either `system`, `user`, `assistant` or `tool`."
+    ],
+    content: [
+      type: {:or, [:string, {:list, @permissive_map}, nil]},
+      doc: "The content of the message."
+    ],
+    tool_calls: [
+      type: {:list, @permissive_map},
+      doc: "*(optional)* Tool calls from the assistant that the model wants to use."
+    ],
+    tool_call_id: [
+      type: :string,
+      doc:
+        "*(optional)* Required when `role` is 'tool'. ID of the tool call this message is responding to."
+    ]
+  )
+
+  schema(:function_def,
+    name: [
+      type: :string,
+      required: true,
+      doc: "The name of the function to be called."
+    ],
+    description: [
+      type: :string,
+      doc: "*(optional)* A description of what the function does."
+    ],
+    parameters: [
+      type: @permissive_map,
+      required: true,
+      doc: "The parameters the function accepts, described as a JSON Schema object."
+    ]
+  )
+
+  schema(:tool_def,
+    type: [
+      type: {:in, ["function"]},
+      required: true,
+      doc: "The type of tool. Currently only 'function' is supported."
+    ],
+    function: [
+      type: :map,
+      required: true,
+      keys: nested_schema(:function_def),
+      doc: "The function definition."
+    ]
+  )
+
+  schema(:chat,
+    model: [
+      type: :string,
+      required: true,
+      doc: "The model to use for generating the response."
+    ],
+    messages: [
+      type: {:list, {:map, nested_schema(:chat_message)}},
+      required: true,
+      doc: "List of messages in the conversation."
+    ],
+    temperature: [
+      type: :float,
+      doc: "Controls randomness. Lower values are more deterministic (0.0 to 1.5)."
+    ],
+    top_p: [
+      type: :float,
+      default: 1.0,
+      doc:
+        "Controls diversity via nucleus sampling. Considers only tokens with the top_p probability mass."
+    ],
+    max_tokens: [
+      type: :non_neg_integer,
+      doc: "Maximum number of tokens to generate."
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "When true, returns a stream of partial response chunks."
+    ],
+    random_seed: [
+      type: :non_neg_integer,
+      doc: "Seed for deterministic results."
+    ],
+    tools: [
+      type: {:list, {:map, nested_schema(:tool_def)}},
+      doc: "List of tools available to the model."
+    ],
+    tool_choice: [
+      type: {:or, [:string, @permissive_map]},
+      doc: "Controls tool selection. Options: 'auto', 'any', 'none', or a specific tool."
+    ],
+    presence_penalty: [
+      type: :float,
+      default: 0.0,
+      doc: "Penalizes repetition of tokens. Higher values reduce repetition."
+    ],
+    frequency_penalty: [
+      type: :float,
+      default: 0.0,
+      doc: "Penalizes tokens based on their frequency. Higher values reduce repetition."
+    ],
+    safe_prompt: [
+      type: :boolean,
+      default: false,
+      doc: "Whether to inject a safety prompt before all conversations."
+    ]
+  )
+
+  schema(:embed,
+    model: [
+      type: :string,
+      default: "mistral-embed",
+      doc: "The model to use for generating embeddings."
+    ],
+    input: [
+      type: {:or, [:string, {:list, :string}]},
+      required: true,
+      doc: "Text or list of texts to generate embeddings for."
+    ]
+  )
 
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
@@ -40,6 +208,14 @@ defmodule Mistral do
   ```
 
   If given, a keyword list of options will be passed to `Req.new/1`.
+
+  ## Examples
+
+      iex> client = Mistral.init()
+      %Mistral{}
+
+      iex> client = Mistral.init(headers: [{"X-Custom-Header", "value"}])
+      %Mistral{}
   """
   @spec init() :: client()
   def init, do: init([])
@@ -54,6 +230,14 @@ defmodule Mistral do
   Creates a new Mistral API client with the given API key.
 
   Optionally, a keyword list of options can be passed through to `Req.new/1`.
+
+  ## Examples
+
+      iex> client = Mistral.init("YOUR_API_KEY")
+      %Mistral{}
+
+      iex> client = Mistral.init("YOUR_API_KEY", receive_timeout: :infinity)
+      %Mistral{}
   """
   @spec init(String.t(), keyword()) :: client()
   def init(api_key, opts \\ []) when is_binary(api_key) do
@@ -74,15 +258,19 @@ defmodule Mistral do
 
   ## Options
 
-  - `:model` - The model to use for generating the response (required)
-  - `:messages` - List of messages in the conversation (required)
-  - `:temperature` - Controls randomness (0.0 to 1.0)
-  - `:max_tokens` - Maximum number of tokens to generate
-  - `:stream` - When true, returns a stream of partial response chunks
-  - `:tools` - List of tools available to the model. Each tool must be a map with:
-    * `:type` set to "function"
-    * `:function` containing function details
-  - `:tool_choice` - How to choose tools
+  #{doc(:chat)}
+
+  ## Message structure
+
+  Each message is a map with the following fields:
+
+  #{doc(:chat_message)}
+
+  ## Tool structure
+
+  Each tool is a map with the following fields:
+
+  #{doc(:tool_def)}
 
   ## Examples
 
@@ -123,42 +311,32 @@ defmodule Mistral do
   """
   @spec chat(client(), keyword()) :: response()
   def chat(%__MODULE__{} = client, params) when is_list(params) do
-    {stream_opt, params} = Keyword.pop(params, :stream, false)
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
 
-    params =
-      if Keyword.has_key?(params, :tools) do
-        Keyword.update(params, :tools, [], fn tools ->
-          Enum.map(tools, fn
-            %{type: "function", function: _} = tool -> tool
-            _ -> raise ArgumentError, "Tools must have type 'function' and a 'function' key"
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/chat/completions",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
           end)
-        end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
       else
-        params
+        client
+        |> req(:post, "/chat/completions", json: Enum.into(params, %{}))
+        |> res()
       end
-
-    if stream_opt do
-      params = Keyword.put(params, :stream, true)
-      dest = if is_pid(stream_opt), do: stream_opt, else: self()
-
-      task =
-        Task.async(fn ->
-          client
-          |> req(:post, "/chat/completions",
-            json: Enum.into(params, %{}),
-            into: stream_handler(dest)
-          )
-          |> res()
-        end)
-
-      case stream_opt do
-        true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-        _ -> {:ok, task}
-      end
-    else
-      client
-      |> req(:post, "/chat/completions", json: Enum.into(params, %{}))
-      |> res()
     end
   end
 
@@ -233,8 +411,7 @@ defmodule Mistral do
 
   ## Options
 
-  - `:model` - The model to use for generating embeddings (default: "mistral-embed")
-  - `:input` - Text or list of texts to generate embeddings for
+  #{doc(:embed)}
 
   ## Examples
 
@@ -246,11 +423,11 @@ defmodule Mistral do
   """
   @spec embed(client(), keyword()) :: response()
   def embed(%__MODULE__{} = client, params) when is_list(params) do
-    params = Keyword.put_new(params, :model, "mistral-embed")
-
-    client
-    |> req(:post, "/embeddings", json: Enum.into(params, %{}))
-    |> res()
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:embed)) do
+      client
+      |> req(:post, "/embeddings", json: Enum.into(params, %{}))
+      |> res()
+    end
   end
 
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
@@ -260,12 +437,17 @@ defmodule Mistral do
   end
 
   @spec res(req_response()) :: response()
+  defp res({:ok, %Task{} = task}), do: {:ok, task}
+  defp res({:ok, stream}) when is_function(stream), do: {:ok, stream}
+
   defp res({:ok, %Req.Response{status: status, body: ""}}) when status in 200..299,
     do: {:ok, %{}}
 
   defp res({:ok, %Req.Response{status: status, body: body}}) when status in 200..299,
     do: {:ok, body}
 
-  defp res({:ok, resp}), do: {:error, resp}
+  defp res({:ok, resp}),
+    do: {:error, APIError.exception(resp)}
+
   defp res({:error, error}), do: {:error, error}
 end

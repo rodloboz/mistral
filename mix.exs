@@ -6,7 +6,7 @@ defmodule Mistral.MixProject do
       app: :mistral,
       name: "Mistral",
       description: "A nifty little library for working with Mistral in Elixir.",
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.13",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

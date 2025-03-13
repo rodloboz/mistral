@@ -1,9 +1,9 @@
 # Mistral
 
 ![GitHub CI](https://github.com/rodloboz/mistral/actions/workflows/all-checks-pass.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-
-A nifty Elixir client for the [Mistral AI API](https://docs.mistral.ai/api/), providing a simple and convenient way to integrate Mistral's powerful language models into your Elixir applications.
+Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mistral.ai/api/), offering a simple and efficient way to integrate Mistral's language models into your Elixir applications. Designed for ease of use, Mistral provides access to Mistral AI's capabilities, making it a great choice for building AI-driven features.
 
 ## Features
 
@@ -20,7 +20,7 @@ Add `mistral` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:mistral, "~> 0.1.0"}
+    {:mistral, "~> 0.2.0"}
   ]
 end
 ```
