@@ -218,7 +218,7 @@ defmodule Mistral do
 
   schema(:document_url_chunk,
     type: [
-      type: :string,
+      type: {:in, ["document_url"]},
       required: true,
       default: "document_url",
       doc: "Type of document, must be 'document_url'."
