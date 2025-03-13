@@ -1,5 +1,7 @@
 # Mistral
 
+[![Hex.pm Version](https://img.shields.io/hexpm/v/mistral)](https://hex.pm/packages/mistral)
+[![Hex.pm Download Total](https://img.shields.io/hexpm/dt/mistral)](https://hex.pm/packages/mistral)
 ![GitHub CI](https://github.com/rodloboz/mistral/actions/workflows/all-checks-pass.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
