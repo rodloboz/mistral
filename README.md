@@ -1,5 +1,7 @@
 # Mistral
 
+[![Hex.pm Version](https://img.shields.io/hexpm/v/mistral)](https://hex.pm/packages/mistral)
+[![Hex.pm Download Total](https://img.shields.io/hexpm/dt/mistral)](https://hex.pm/packages/mistral)
 ![GitHub CI](https://github.com/rodloboz/mistral/actions/workflows/all-checks-pass.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -7,12 +9,14 @@ Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mi
 
 ## Features
 
-- 🚀 Chat Completions
-- 🧩 Function Calling / Tool Use
+- 💬 Chat Completions
+- 🛠 Function Calling / Tool Use
 - 🔢 Embeddings
 - 🌊 Streaming Support
 - 🛡️ Error Handling
-- 📋 Models API
+- ⬆️ File Uploading
+- 📄 OCR (Optical Character Recognition)
+- 🤖 Models API
 
 ## Installation
 
@@ -88,10 +92,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Roadmap
 
-- [ ] OCR (Optical Character Recognition) Support
+- [X] OCR (Optical Character Recognition) Support
 - [ ] Batch Processing Support
 - [ ] Advanced Streaming Improvements
-- [ ] Enhanced Error Handling
+- [X] Enhanced Error Handling
 
 ## License
 

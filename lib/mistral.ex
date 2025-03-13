@@ -216,6 +216,76 @@ defmodule Mistral do
     ]
   )
 
+  schema(:document_url_chunk,
+    type: [
+      type: {:in, ["document_url"]},
+      required: true,
+      default: "document_url",
+      doc: "Type of document, must be 'document_url'."
+    ],
+    document_url: [
+      type: :string,
+      required: true,
+      doc: "URL of the document to be processed."
+    ],
+    document_name: [
+      type: {:or, [:string, nil]},
+      doc: "Optional filename of the document."
+    ]
+  )
+
+  schema(:image_url_chunk,
+    type: [
+      type: :string,
+      required: true,
+      default: "image_url",
+      doc: "Type of image, must be 'image_url'."
+    ],
+    image_url: [
+      type: :string,
+      required: true,
+      doc: "URL of the image to be processed."
+    ]
+  )
+
+  schema(:ocr_opts,
+    model: [
+      type: {:or, [:string, nil]},
+      required: true,
+      doc: "Model to use for OCR processing."
+    ],
+    id: [
+      type: :string,
+      doc: "Unique identifier for the OCR request."
+    ],
+    document: [
+      type:
+        {:or,
+         [
+           {:map, nested_schema(:document_url_chunk)},
+           {:map, nested_schema(:image_url_chunk)}
+         ]},
+      required: true,
+      doc: "Document object containing the URL or image URL."
+    ],
+    pages: [
+      type: {:or, [nil, {:list, :integer}]},
+      doc: "List of page indices to process (starting from 0)."
+    ],
+    include_image_base64: [
+      type: {:or, [:boolean, nil]},
+      doc: "Include base64 images in the response."
+    ],
+    image_limit: [
+      type: {:or, [:integer, nil]},
+      doc: "Maximum number of images to extract."
+    ],
+    image_min_size: [
+      type: {:or, [:integer, nil]},
+      doc: "Minimum image dimensions to extract."
+    ]
+  )
+
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
 
@@ -540,6 +610,31 @@ defmodule Mistral do
 
       {:error, reason} when is_atom(reason) ->
         {:error, %File.Error{reason: reason, action: "read file", path: file_path}}
+    end
+  end
+
+  @doc """
+  Perform OCR on a document or image.
+
+  ## Options
+
+  #{doc(:ocr_opts)}
+
+  ## Examples
+
+      iex> Mistral.ocr(client, model: "mistral-ocr-latest", document: %{type: "document_url", document_url: "https://example.com/sample.pdf"})
+      {:ok, %{"pages" => [...]}}
+
+      iex> Mistral.ocr(client, model: "mistral-ocr-latest", document: %{type: "image_url", image_url: "https://example.com/sample.png"})
+      {:ok, %{"pages" => [...]}}
+
+  """
+  @spec ocr(client(), keyword()) :: response()
+  def ocr(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:ocr_opts)) do
+      client
+      |> req(:post, "/ocr", json: Enum.into(params, %{}))
+      |> res()
     end
   end
 

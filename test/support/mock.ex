@@ -142,6 +142,34 @@ defmodule Mistral.Mock do
       "source" => "upload",
       "deleted" => false,
       "num_lines" => nil
+    },
+    ocr: %{
+      "model" => "mistral-ocr-latest",
+      "pages" => [
+        %{
+          "index" => 0,
+          "markdown" => "some content",
+          "images" => [
+            %{
+              "id" => "img-123456",
+              "top_left_x" => 0,
+              "top_left_y" => 0,
+              "bottom_right_x" => 0,
+              "bottom_right_y" => 0,
+              "image_base64" => "base64representation"
+            }
+          ],
+          "dimensions" => %{
+            "dpi" => 0,
+            "height" => 0,
+            "width" => 0
+          }
+        }
+      ],
+      "usage_info" => %{
+        "pages_processed" => 0,
+        "doc_size_bytes" => 0
+      }
     }
   }
 
