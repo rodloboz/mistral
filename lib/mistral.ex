@@ -200,6 +200,14 @@ defmodule Mistral do
     ]
   )
 
+  schema(:upload_file_opts,
+    purpose: [
+      type: {:in, ["ocr", "fine-tune", "batch"]},
+      required: true,
+      doc: "The purpose of the file. Currently supports 'ocr', 'fine-tune', and 'batch'."
+    ]
+  )
+
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
 
@@ -427,6 +435,46 @@ defmodule Mistral do
       client
       |> req(:post, "/embeddings", json: Enum.into(params, %{}))
       |> res()
+    end
+  end
+
+  @doc """
+  Uploads a file to the Mistral API.
+
+  ## Options
+
+  #{doc(:upload_file_opts)}
+
+  ## Examples
+
+      iex> Mistral.upload_file(client, "path/to/file.pdf", purpose: "ocr")
+      {:ok, %{"id" => "file-abc123", "object" => "file", ...}}
+  """
+  @spec upload_file(client(), Path.t(), keyword()) :: response()
+  def upload_file(%__MODULE__{} = client, file_path, opts)
+      when is_binary(file_path) and is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:upload_file_opts)),
+         {:ok, file_binary} <- read_file(file_path) do
+      filename = Path.basename(file_path)
+
+      form_data = [
+        purpose: Keyword.get(opts, :purpose),
+        file: {file_binary, filename: filename}
+      ]
+
+      client
+      |> req(:post, "/files", form_multipart: form_data)
+      |> res()
+    end
+  end
+
+  defp read_file(file_path) do
+    case File.read(file_path) do
+      {:ok, data} ->
+        {:ok, data}
+
+      {:error, reason} when is_atom(reason) ->
+        {:error, %File.Error{reason: reason, action: "read file", path: file_path}}
     end
   end
 

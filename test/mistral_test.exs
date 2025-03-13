@@ -348,4 +348,40 @@ defmodule MistralTest do
       end)
     end
   end
+
+  describe "upload_file/3" do
+    test "uploads a file successfully" do
+      client = Mock.client(&Mock.respond(&1, :file_upload))
+      file_path = "test/fixtures/dummy.pdf"
+
+      assert {:ok, response} = Mistral.upload_file(client, file_path, purpose: "ocr")
+      assert response["id"] != nil
+      assert response["object"] == "file"
+      assert response["purpose"] == "ocr"
+      assert response["filename"] != nil
+    end
+
+    test "returns error when file doesn't exist" do
+      client = Mock.client(&Mock.respond(&1, :file_upload))
+      file_path = "non_existent_file.pdf"
+
+      assert {:error, %File.Error{}} = Mistral.upload_file(client, file_path, purpose: "ocr")
+    end
+
+    test "returns error with invalid purpose" do
+      client = Mock.client(&Mock.respond(&1, :file_upload))
+      file_path = "test/fixtures/dummy.pdf"
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.upload_file(client, file_path, purpose: "invalid")
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 400))
+      file_path = "test/fixtures/dummy.pdf"
+
+      assert {:error, %Mistral.APIError{}} =
+               Mistral.upload_file(client, file_path, purpose: "ocr")
+    end
+  end
 end
