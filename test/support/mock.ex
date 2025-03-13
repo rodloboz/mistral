@@ -4,7 +4,9 @@ defmodule Mistral.Mock do
   alias Plug.Conn.Status
   import Plug.Conn
 
-  @mocks %{
+  @mocks_key :mistral_mocks
+
+  @default_mocks %{
     chat_completion: %{
       "id" => "cmpl-e5cc70bb28c444948073e77776eb30ef",
       "object" => "chat.completion",
@@ -297,6 +299,23 @@ defmodule Mistral.Mock do
     }
   }
 
+  @spec add_mock(any(), any()) :: any()
+  def add_mock(key, value) do
+    mocks = Process.get(@mocks_key, %{})
+    Process.put(@mocks_key, Map.put(mocks, key, value))
+  end
+
+  @spec get_mocks() :: %{
+          :chat_completion => any(),
+          :embedding => any(),
+          :embeddings => any(),
+          :tool_use => any(),
+          optional(any()) => any()
+        }
+  def get_mocks do
+    Map.merge(@default_mocks, Process.get(@mocks_key, %{}))
+  end
+
   @spec client(function()) :: Mistral.client()
   def client(plug) when is_function(plug, 1) do
     struct(Mistral, req: Req.new(plug: plug))
@@ -304,9 +323,11 @@ defmodule Mistral.Mock do
 
   @spec respond(Plug.Conn.t(), atom() | number()) :: Plug.Conn.t()
   def respond(conn, name) when is_atom(name) do
+    mocks = get_mocks()
+
     conn
     |> put_resp_header("content-type", "application/json")
-    |> send_resp(200, Jason.encode!(@mocks[name]))
+    |> send_resp(200, Jason.encode!(Map.get(mocks, name)))
   end
 
   def respond(conn, status) when is_number(status) do

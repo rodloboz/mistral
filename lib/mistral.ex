@@ -430,24 +430,45 @@ defmodule Mistral do
     end
   end
 
+  @doc """
+  Returns a `Mistral.Models` context struct for accessing model-specific functions.
+
+  This function creates a proxy module for model-related API calls, allowing you
+  to access functions like `list/1` or `get/2` directly through the client without
+  cluttering the main module.
+
+  ## Examples
+
+      iex> client = Mistral.init("your_api_key")
+      iex> models = Mistral.models(client)
+      %Mistral.Models{client: client}
+
+      # List all available models using the models context:
+      iex> models.list()
+      {:ok, %{"data" => [%{"id" => "mistral-small-latest", ...}], ...}}
+  """
+  def models(%__MODULE__{} = client) do
+    %Mistral.Models{client: client}
+  end
+
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
-  defp req(%__MODULE__{req: req}, method, url, opts) do
+  def req(%__MODULE__{req: req}, method, url, opts) do
     opts = Keyword.merge(opts, method: method, url: url)
     Req.request(req, opts)
   end
 
   @spec res(req_response()) :: response()
-  defp res({:ok, %Task{} = task}), do: {:ok, task}
-  defp res({:ok, stream}) when is_function(stream), do: {:ok, stream}
+  def res({:ok, %Task{} = task}), do: {:ok, task}
+  def res({:ok, stream}) when is_function(stream), do: {:ok, stream}
 
-  defp res({:ok, %Req.Response{status: status, body: ""}}) when status in 200..299,
+  def res({:ok, %Req.Response{status: status, body: ""}}) when status in 200..299,
     do: {:ok, %{}}
 
-  defp res({:ok, %Req.Response{status: status, body: body}}) when status in 200..299,
+  def res({:ok, %Req.Response{status: status, body: body}}) when status in 200..299,
     do: {:ok, body}
 
-  defp res({:ok, resp}),
+  def res({:ok, resp}),
     do: {:error, APIError.exception(resp)}
 
-  defp res({:error, error}), do: {:error, error}
+  def res({:error, error}), do: {:error, error}
 end
