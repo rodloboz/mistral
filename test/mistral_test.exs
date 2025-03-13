@@ -352,7 +352,7 @@ defmodule MistralTest do
   describe "upload_file/3" do
     test "uploads a file successfully" do
       client = Mock.client(&Mock.respond(&1, :file_upload))
-      file_path = "test/fixtures/sample.pdf"
+      file_path = "test/fixtures/dummy.pdf"
 
       assert {:ok, response} = Mistral.upload_file(client, file_path, purpose: "ocr")
       assert response["id"] != nil
@@ -370,17 +370,18 @@ defmodule MistralTest do
 
     test "returns error with invalid purpose" do
       client = Mock.client(&Mock.respond(&1, :file_upload))
-      file_path = "test/fixtures/sample.pdf"
+      file_path = "test/fixtures/dummy.pdf"
 
       assert {:error, %NimbleOptions.ValidationError{}} =
-        Mistral.upload_file(client, file_path, purpose: "invalid")
+               Mistral.upload_file(client, file_path, purpose: "invalid")
     end
 
     test "handles API errors" do
       client = Mock.client(&Mock.respond(&1, 400))
-      file_path = "test/fixtures/sample.pdf"
+      file_path = "test/fixtures/dummy.pdf"
 
-      assert {:error, %Mistral.APIError{}} = Mistral.upload_file(client, file_path, purpose: "ocr")
+      assert {:error, %Mistral.APIError{}} =
+               Mistral.upload_file(client, file_path, purpose: "ocr")
     end
   end
 end
