@@ -384,4 +384,79 @@ defmodule MistralTest do
                Mistral.upload_file(client, file_path, purpose: "ocr")
     end
   end
+
+  describe "get_file/2" do
+    setup do
+      file = %{
+        "id" => "00edaf84-95b0-45db-8f83-f71138491f23",
+        "object" => "file",
+        "bytes" => 3_749_788,
+        "created_at" => 1_741_023_462,
+        "filename" => "test_document.pdf",
+        "purpose" => "ocr",
+        "sample_type" => "ocr_input",
+        "source" => "upload",
+        "deleted" => false,
+        "num_lines" => nil
+      }
+
+      Mock.add_mock(:get_file, file)
+      :ok
+    end
+
+    test "retrieves a file by ID" do
+      client = Mock.client(&Mock.respond(&1, :get_file))
+      assert {:ok, file} = Mistral.get_file(client, "00edaf84-95b0-45db-8f83-f71138491f23")
+
+      assert file["id"] == "00edaf84-95b0-45db-8f83-f71138491f23"
+      assert file["object"] == "file"
+      assert file["purpose"] == "ocr"
+      assert file["filename"] == "test_document.pdf"
+    end
+
+    test "handles file not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+      assert {:error, error} = Mistral.get_file(client, "nonexistent-file-id")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "get_file_url/2" do
+    setup do
+      signed_url = %{
+        "url" => "https://storage.googleapis.com/mistral-file-uploads/signed-url-example"
+      }
+
+      Mock.add_mock(:get_file_url, signed_url)
+      :ok
+    end
+
+    test "retrieves a signed URL for a file" do
+      client = Mock.client(&Mock.respond(&1, :get_file_url))
+
+      assert {:ok, response} =
+               Mistral.get_file_url(client, "00edaf84-95b0-45db-8f83-f71138491f23")
+
+      assert response["url"] ==
+               "https://storage.googleapis.com/mistral-file-uploads/signed-url-example"
+    end
+
+    test "retrieves a signed URL with expiry parameter" do
+      client = Mock.client(&Mock.respond(&1, :get_file_url))
+
+      assert {:ok, response} =
+               Mistral.get_file_url(client, "00edaf84-95b0-45db-8f83-f71138491f23", expiry: 48)
+
+      assert response["url"] ==
+               "https://storage.googleapis.com/mistral-file-uploads/signed-url-example"
+    end
+
+    test "handles file not found for signed URL" do
+      client = Mock.client(&Mock.respond(&1, 404))
+      assert {:error, error} = Mistral.get_file_url(client, "nonexistent-file-id")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
 end

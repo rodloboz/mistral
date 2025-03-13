@@ -208,6 +208,14 @@ defmodule Mistral do
     ]
   )
 
+  schema(:get_file_url_opts,
+    expiry: [
+      type: :integer,
+      default: 24,
+      doc: "Number of hours before the signed URL expires. Defaults to 24 hours."
+    ]
+  )
+
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
 
@@ -468,6 +476,63 @@ defmodule Mistral do
     end
   end
 
+  @doc """
+  Retrieves information about a specific file by its ID.
+
+  ## Parameters
+
+    - `client`: A `Mistral.client()` struct.
+    - `file_id`: The ID of the file to retrieve.
+
+  ## Examples
+
+      iex> Mistral.get_file(client, "00edaf84-95b0-45db-8f83-f71138491f23")
+      {:ok, %{
+        "id" => "00edaf84-95b0-45db-8f83-f71138491f23",
+        "object" => "file",
+        "bytes" => 3749788,
+        "created_at" => 1741023462,
+        "filename" => "test_document.pdf",
+        "purpose" => "ocr",
+        "sample_type" => "ocr_input",
+        "source" => "upload",
+        "deleted" => false
+      }}
+  """
+  @spec get_file(client(), String.t()) :: response()
+  def get_file(%__MODULE__{} = client, file_id) when is_binary(file_id) do
+    client
+    |> req(:get, "/files/#{file_id}")
+    |> res()
+  end
+
+  @doc """
+  Retrieves a signed URL for the specified file.
+
+  ## Parameters
+
+    - `client`: A `Mistral.client()` struct.
+    - `file_id`: The ID of the file.
+    - `opts`: An optional keyword list for additional query parameters (e.g., `expiry`).
+
+  ## Examples
+
+      iex> Mistral.get_file_url(client, "00edaf84-95b0-45db-8f83-f71138491f23")
+      {:ok, %{"url" => "https://storage.googleapis.com/mistral-file-uploads/signed-url-example"}}
+
+      iex> Mistral.get_file_url(client, "00edaf84-95b0-45db-8f83-f71138491f23", expiry: 48)
+      {:ok, %{"url" => "https://storage.googleapis.com/mistral-file-uploads/signed-url-example"}}
+  """
+  @spec get_file_url(client(), String.t(), keyword()) :: response()
+  def get_file_url(%__MODULE__{} = client, file_id, opts \\ [])
+      when is_binary(file_id) and is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:get_file_url_opts)) do
+      client
+      |> req(:get, "/files/#{file_id}/url", params: opts)
+      |> res()
+    end
+  end
+
   defp read_file(file_path) do
     case File.read(file_path) do
       {:ok, data} ->
@@ -500,7 +565,7 @@ defmodule Mistral do
   end
 
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
-  def req(%__MODULE__{req: req}, method, url, opts) do
+  def req(%__MODULE__{req: req}, method, url, opts \\ []) do
     opts = Keyword.merge(opts, method: method, url: url)
     Req.request(req, opts)
   end
