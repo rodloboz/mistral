@@ -20,7 +20,7 @@ defmodule Mistral.ModelsTest do
           },
           "name" => "Mistral Small",
           "description" => "Mistral AI's flagship small model",
-          "max_context_length" => 32768,
+          "max_context_length" => 32_768,
           "aliases" => ["mistral-small"],
           "type" => "base"
         },
@@ -38,7 +38,7 @@ defmodule Mistral.ModelsTest do
           },
           "name" => "Mistral Large",
           "description" => "Mistral AI's flagship large model",
-          "max_context_length" => 32768,
+          "max_context_length" => 32_768,
           "aliases" => ["mistral-large"],
           "type" => "base"
         }
@@ -59,7 +59,7 @@ defmodule Mistral.ModelsTest do
       },
       "name" => "Mistral Small",
       "description" => "Mistral AI's flagship small model",
-      "max_context_length" => 32768,
+      "max_context_length" => 32_768,
       "aliases" => ["mistral-small"],
       "type" => "base"
     }
