@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add `Mistral.Models` module for working with Mistral's models API
   - `list/1` - List all available models
   - `get/2` - Retrieve information about a specific model
+- `upload_file/3` function for uploading files to the Mistral API with support for OCR, fine-tuning, and batch processing purposes.
 
 ## [0.2.0] - 2025-03-13
 
