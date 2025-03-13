@@ -15,7 +15,7 @@ Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mi
 - 🌊 Streaming Support
 - 🛡️ Error Handling
 - ⬆️ File Uploading
-- 📄 OCR
+- 📄 OCR (Optical Character Recognition)
 - 🤖 Models API
 
 ## Installation
@@ -92,10 +92,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Roadmap
 
-- [ ] OCR (Optical Character Recognition) Support
+- [X] OCR (Optical Character Recognition) Support
 - [ ] Batch Processing Support
 - [ ] Advanced Streaming Improvements
-- [ ] Enhanced Error Handling
+- [X] Enhanced Error Handling
 
 ## License
 
