@@ -130,6 +130,18 @@ defmodule Mistral.Mock do
         "prompt_tokens" => 16,
         "total_tokens" => 16
       }
+    },
+    file_upload: %{
+      "id" => "file-abc123",
+      "object" => "file",
+      "bytes" => 12345,
+      "created_at" => 1741023462,
+      "filename" => "sample.pdf",
+      "purpose" => "ocr",
+      "sample_type" => "ocr_input",
+      "source" => "upload",
+      "deleted" => false,
+      "num_lines" => nil
     }
   }
 

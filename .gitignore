@@ -21,3 +21,6 @@ mistral-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# macOS specific files
+.DS_Store
