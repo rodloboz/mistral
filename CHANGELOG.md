@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2025-07-20
+
+### Added
+
+- **Response Format Control**: Support for JSON mode and structured output with schema validation
+  - `response_format` parameter for `chat/2` with support for `json_object` and `json_schema` types
+  - JSON Schema validation with custom schemas for structured responses
+  - OCR annotation formats: `bbox_annotation_format` and `document_annotation_format` for structured OCR output
+  - Comprehensive validation ensuring `json_schema` is provided when type is `json_schema`
+
 ## [0.3.0] - 2025-03-13
 
 ### Changed

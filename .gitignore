@@ -24,3 +24,7 @@ mistral-*.tar
 
 # macOS specific files
 .DS_Store
+
+# Tools
+.accomplish.toml
+CLAUDE.md

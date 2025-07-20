@@ -638,4 +638,155 @@ defmodule MistralTest do
       assert error.type == "not_found"
     end
   end
+
+  describe "response format control" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :chat_completion))
+      {:ok, client: client}
+    end
+
+    test "supports JSON object mode", %{client: client} do
+      assert {:ok, res} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Generate a JSON"}],
+                 response_format: %{type: "json_object"}
+               )
+
+      assert res["choices"]
+    end
+
+    test "supports JSON schema mode", %{client: client} do
+      schema = %{
+        type: "object",
+        title: "UserInfo",
+        properties: %{
+          name: %{type: "string", title: "Name"},
+          age: %{type: "integer", title: "Age"}
+        },
+        required: ["name", "age"],
+        additionalProperties: false
+      }
+
+      assert {:ok, res} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Generate user info"}],
+                 response_format: %{
+                   type: "json_schema",
+                   json_schema: %{
+                     name: "user_info",
+                     schema: schema,
+                     strict: true
+                   }
+                 }
+               )
+
+      assert res["choices"]
+    end
+
+    test "validates response format type", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Test"}],
+                 response_format: %{type: "invalid_type"}
+               )
+    end
+
+    test "requires json_schema when type is json_schema", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Test"}],
+                 response_format: %{type: "json_schema"}
+               )
+    end
+
+    test "rejects nil json_schema when type is json_schema", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Test"}],
+                 response_format: %{type: "json_schema", json_schema: nil}
+               )
+    end
+
+    test "defaults to text format when not specified", %{client: client} do
+      assert {:ok, res} =
+               Mistral.chat(client,
+                 model: "mistral-small-latest",
+                 messages: [%{role: "user", content: "Test"}]
+               )
+
+      assert res["choices"]
+    end
+  end
+
+  describe "OCR with response format" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :ocr))
+      {:ok, client: client}
+    end
+
+    test "supports bbox annotation format", %{client: client} do
+      schema = %{
+        type: "object",
+        title: "BboxAnnotation",
+        properties: %{
+          text: %{type: "string", title: "Text"},
+          confidence: %{type: "number", title: "Confidence"}
+        },
+        additionalProperties: false
+      }
+
+      assert {:ok, res} =
+               Mistral.ocr(client,
+                 model: "mistral-ocr-latest",
+                 document: %{
+                   type: "document_url",
+                   document_url: "https://example.com/doc.pdf"
+                 },
+                 bbox_annotation_format: %{
+                   type: "json_schema",
+                   json_schema: %{
+                     name: "bbox_annotation",
+                     schema: schema
+                   }
+                 }
+               )
+
+      assert res["pages"]
+    end
+
+    test "supports document annotation format", %{client: client} do
+      schema = %{
+        type: "object",
+        title: "DocumentAnnotation",
+        properties: %{
+          title: %{type: "string", title: "Title"},
+          summary: %{type: "string", title: "Summary"}
+        },
+        additionalProperties: false
+      }
+
+      assert {:ok, res} =
+               Mistral.ocr(client,
+                 model: "mistral-ocr-latest",
+                 document: %{
+                   type: "document_url",
+                   document_url: "https://example.com/doc.pdf"
+                 },
+                 document_annotation_format: %{
+                   type: "json_schema",
+                   json_schema: %{
+                     name: "document_annotation",
+                     schema: schema
+                   }
+                 }
+               )
+
+      assert res["pages"]
+    end
+  end
 end

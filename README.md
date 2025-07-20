@@ -77,6 +77,49 @@ stream
 )
 ```
 
+### Response Format Control
+
+Control the output format for structured responses:
+
+```elixir
+# JSON Object Mode - ensures valid JSON response
+{:ok, response} = Mistral.chat(client,
+  model: "mistral-small-latest",
+  messages: [
+    %{role: "user", content: "Generate a user profile in JSON format"}
+  ],
+  response_format: %{type: "json_object"}
+)
+
+# JSON Schema Mode - validates response against schema
+user_schema = %{
+  type: "object",
+  title: "UserProfile",
+  properties: %{
+    name: %{type: "string", title: "Name"},
+    age: %{type: "integer", title: "Age", minimum: 0},
+    email: %{type: "string", title: "Email"}
+  },
+  required: ["name", "age"],
+  additionalProperties: false
+}
+
+{:ok, response} = Mistral.chat(client,
+  model: "mistral-small-latest",
+  messages: [
+    %{role: "user", content: "Generate a user profile"}
+  ],
+  response_format: %{
+    type: "json_schema",
+    json_schema: %{
+      name: "user_profile",
+      schema: user_schema,
+      strict: true
+    }
+  }
+)
+```
+
 ## Credits & Acknowledgments
 
 This package was heavily inspired by and draws from the excellent implementations of:
@@ -93,9 +136,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Roadmap
 
 - [X] OCR (Optical Character Recognition) Support
-- [ ] Batch Processing Support
-- [ ] Advanced Streaming Improvements
 - [X] Enhanced Error Handling
+- [X] Response Format Control (JSON mode with schema validation)
+- [ ] Classification/Moderation API
+- [ ] Batch Processing Support
+- [ ] Complete File Operations (list, delete, download)
+- [ ] Advanced Streaming Improvements
 
 ## License
 
