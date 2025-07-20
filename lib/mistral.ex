@@ -128,6 +128,37 @@ defmodule Mistral do
     ]
   )
 
+  schema(:json_schema,
+    name: [
+      type: :string,
+      required: true,
+      doc: "The name of the JSON schema."
+    ],
+    schema: [
+      type: @permissive_map,
+      required: true,
+      doc: "The JSON Schema object defining the structure."
+    ],
+    strict: [
+      type: :boolean,
+      default: true,
+      doc: "Whether to enforce strict schema validation."
+    ]
+  )
+
+  schema(:response_format,
+    type: [
+      type: {:in, ["text", "json_object", "json_schema"]},
+      default: "text",
+      doc:
+        "The format type. 'text' for normal text, 'json_object' for JSON mode, 'json_schema' for structured output."
+    ],
+    json_schema: [
+      type: {:or, [{:map, nested_schema(:json_schema)}, nil]},
+      doc: "*(required when type is 'json_schema')* The JSON schema definition."
+    ]
+  )
+
   schema(:chat,
     model: [
       type: :string,
@@ -184,6 +215,11 @@ defmodule Mistral do
       type: :boolean,
       default: false,
       doc: "Whether to inject a safety prompt before all conversations."
+    ],
+    response_format: [
+      type: {:or, [{:map, nested_schema(:response_format)}, nil]},
+      doc:
+        "*(optional)* Controls the output format. Use for JSON mode or structured output with schema validation."
     ]
   )
 
@@ -283,6 +319,16 @@ defmodule Mistral do
     image_min_size: [
       type: {:or, [:integer, nil]},
       doc: "Minimum image dimensions to extract."
+    ],
+    bbox_annotation_format: [
+      type: {:or, [{:map, nested_schema(:response_format)}, nil]},
+      doc:
+        "*(optional)* Structured output for extracting information from each bounding box/image. Only json_schema type is valid."
+    ],
+    document_annotation_format: [
+      type: {:or, [{:map, nested_schema(:response_format)}, nil]},
+      doc:
+        "*(optional)* Structured output for extracting information from the entire document. Only json_schema type is valid."
     ]
   )
 
@@ -394,10 +440,47 @@ defmodule Mistral do
       ...>   ],
       ...>   tool_choice: "auto"
       ...> ])
+
+      ## Response Format Control
+
+      You can control the output format using the `response_format` parameter:
+
+      iex> # JSON mode - ensures response is valid JSON
+      iex> Mistral.chat(client, [
+      ...>   model: "mistral-small-latest",
+      ...>   messages: [%{role: "user", content: "Generate user data in JSON format"}],
+      ...>   response_format: %{type: "json_object"}
+      ...> ])
+
+      iex> # JSON Schema mode - validates response against schema
+      iex> user_schema = %{
+      ...>   type: "object",
+      ...>   title: "UserProfile",
+      ...>   properties: %{
+      ...>     name: %{type: "string", title: "Name"},
+      ...>     age: %{type: "integer", title: "Age", minimum: 0},
+      ...>     email: %{type: "string", title: "Email"}
+      ...>   },
+      ...>   required: ["name", "age"],
+      ...>   additionalProperties: false
+      ...> }
+      iex> Mistral.chat(client, [
+      ...>   model: "mistral-small-latest",
+      ...>   messages: [%{role: "user", content: "Generate a user profile"}],
+      ...>   response_format: %{
+      ...>     type: "json_schema",
+      ...>     json_schema: %{
+      ...>       name: "user_profile",
+      ...>       schema: user_schema,
+      ...>       strict: true
+      ...>     }
+      ...>   }
+      ...> ])
   """
   @spec chat(client(), keyword()) :: response()
   def chat(%__MODULE__{} = client, params) when is_list(params) do
-    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat)) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat)),
+         :ok <- validate_response_format(params) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
 
       if stream_opt do
@@ -613,6 +696,27 @@ defmodule Mistral do
     end
   end
 
+  defp validate_response_format(params) do
+    case Keyword.get(params, :response_format) do
+      %{type: "json_schema"} = format when not is_map_key(format, :json_schema) ->
+        {:error,
+         %NimbleOptions.ValidationError{
+           message: "json_schema is required when response_format.type is 'json_schema'",
+           key: [:response_format, :json_schema]
+         }}
+
+      %{type: "json_schema", json_schema: nil} ->
+        {:error,
+         %NimbleOptions.ValidationError{
+           message: "json_schema cannot be nil when response_format.type is 'json_schema'",
+           key: [:response_format, :json_schema]
+         }}
+
+      _ ->
+        :ok
+    end
+  end
+
   @doc """
   Perform OCR on a document or image.
 
@@ -627,6 +731,49 @@ defmodule Mistral do
 
       iex> Mistral.ocr(client, model: "mistral-ocr-latest", document: %{type: "image_url", image_url: "https://example.com/sample.png"})
       {:ok, %{"pages" => [...]}}
+
+      ## Structured Output for OCR
+
+      You can extract structured information from documents using annotation formats:
+
+      iex> # Extract structured data from bounding boxes
+      iex> bbox_schema = %{
+      ...>   type: "object",
+      ...>   title: "BoundingBoxData",
+      ...>   properties: %{
+      ...>     text: %{type: "string", title: "Text"},
+      ...>     confidence: %{type: "number", title: "Confidence", minimum: 0, maximum: 1}
+      ...>   },
+      ...>   additionalProperties: false
+      ...> }
+      iex> Mistral.ocr(client,
+      ...>   model: "mistral-ocr-latest",
+      ...>   document: %{type: "document_url", document_url: "https://example.com/invoice.pdf"},
+      ...>   bbox_annotation_format: %{
+      ...>     type: "json_schema",
+      ...>     json_schema: %{name: "bbox_data", schema: bbox_schema}
+      ...>   }
+      ...> )
+
+      iex> # Extract document-level structured information
+      iex> doc_schema = %{
+      ...>   type: "object",
+      ...>   title: "DocumentInfo",
+      ...>   properties: %{
+      ...>     title: %{type: "string", title: "Title"},
+      ...>     summary: %{type: "string", title: "Summary"},
+      ...>     total_pages: %{type: "integer", title: "TotalPages"}
+      ...>   },
+      ...>   additionalProperties: false
+      ...> }
+      iex> Mistral.ocr(client,
+      ...>   model: "mistral-ocr-latest",
+      ...>   document: %{type: "document_url", document_url: "https://example.com/report.pdf"},
+      ...>   document_annotation_format: %{
+      ...>     type: "json_schema",
+      ...>     json_schema: %{name: "document_info", schema: doc_schema}
+      ...>   }
+      ...> )
 
   """
   @spec ocr(client(), keyword()) :: response()
