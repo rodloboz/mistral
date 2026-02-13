@@ -87,3 +87,32 @@ jobs:
       - run: mix compile --warnings-as-errors --all-warnings
       - run: mix format --check-formatted
       - run: mix credo --strict
+
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18.1'
+          otp-version: '27.0'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: dialyzer-${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-${{ github.head_ref || github.ref }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            dialyzer-${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-${{ github.head_ref || github.ref }}-
+            dialyzer-${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-refs/heads/main-
+
+      - run: mix deps.get
+      - run: mix compile
+      - run: mix dialyzer
