@@ -347,6 +347,157 @@ defmodule MistralTest do
     end
   end
 
+  describe "fim/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :fim_completion))
+      {:ok, client: client}
+    end
+
+    test "validates parameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.fim(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.fim(client, model: "codestral-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.fim(client, prompt: "def add(a, b):\n    ")
+    end
+
+    test "completes code with prompt only", %{client: client} do
+      assert {:ok, res} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def add(a, b):\n    "
+               )
+
+      assert res["model"] == "codestral-latest"
+      assert res["object"] == "chat.completion"
+      assert is_list(res["choices"])
+      choice = Enum.at(res["choices"], 0)
+      assert choice["finish_reason"] == "stop"
+      assert choice["message"]["role"] == "assistant"
+      assert is_binary(choice["message"]["content"])
+    end
+
+    test "completes code with prompt and suffix", %{client: client} do
+      assert {:ok, res} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def ",
+                 suffix: "return a + b"
+               )
+
+      assert res["model"] == "codestral-latest"
+      assert is_list(res["choices"])
+      choice = Enum.at(res["choices"], 0)
+      assert is_binary(choice["message"]["content"])
+    end
+
+    test "streams a response" do
+      client = Mock.client(&Mock.stream(&1, :fim_completion))
+
+      assert {:ok, stream} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def ",
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert res != []
+
+      model_chunk =
+        Enum.find(res, fn chunk ->
+          Map.get(chunk, "model") == "codestral-latest"
+        end)
+
+      assert model_chunk != nil
+
+      content_chunk =
+        Enum.find(res, fn chunk ->
+          choices = Map.get(chunk, "choices", [])
+
+          Enum.any?(choices, fn choice ->
+            choice = Map.get(choice, "delta", %{})
+            Map.has_key?(choice, "content")
+          end)
+        end)
+
+      assert content_chunk != nil
+    end
+
+    test "streams to a process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :fim_completion))
+
+      assert {:ok, task} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def ",
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert chunks != []
+
+      model_chunk =
+        Enum.find(chunks, fn chunk ->
+          Map.get(chunk, "model") == "codestral-latest"
+        end)
+
+      assert model_chunk != nil
+
+      GenServer.stop(pid)
+    end
+
+    test "handles stop parameter", %{client: client} do
+      assert {:ok, _res} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def add(a, b):\n    ",
+                 stop: "\n"
+               )
+
+      assert {:ok, _res} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def add(a, b):\n    ",
+                 stop: ["\n", "\n\n"]
+               )
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.fim(client,
+                 model: "codestral-latest",
+                 prompt: "def add(a, b):\n    "
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
   describe "classify/2" do
     test "validates parameters" do
       client = Mock.client(&Mock.respond(&1, :classification))
