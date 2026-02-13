@@ -11,12 +11,20 @@ Mistral is an open-source Elixir client for the [Mistral AI API](https://docs.mi
 
 - 💬 Chat Completions
 - 🛠 Function Calling / Tool Use
-- 🔢 Embeddings
-- 🌊 Streaming Support
-- 🛡️ Error Handling
-- ⬆️ File Uploading
+- ✏️ FIM (Fill-in-the-Middle) Code Completions
+- 🔢 Embeddings + Embedding Utilities (`Mistral.Embeddings`)
+- 🌊 Streaming Support + Streaming Utilities (`Mistral.Streaming`)
+- 💬 Conversations API + Conversation Utilities (`Mistral.Conversations`)
+- 🤖 Agents API
+- 🏷️ Classification & Moderation
+- 📦 Batch Processing
+- 🎯 Fine-tuning
+- 📁 File Operations (upload, download, list, delete)
 - 📄 OCR (Optical Character Recognition)
-- 🤖 Models
+- 🧩 Models
+- 🗄️ Response Caching (`Mistral.Cache`)
+- 🔄 Automatic Retry with Exponential Backoff
+- 🛡️ Error Handling
 
 ## Installation
 
@@ -25,7 +33,7 @@ Add `mistral` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:mistral, "~> 0.3.0"}
+    {:mistral, "~> 0.5.0"}
   ]
 end
 ```
@@ -43,7 +51,7 @@ config :mistral, :api_key, "your_mistral_api_key"
 ### Chat Completion
 
 ```elixir
-{:ok, client} = Mistral.init("your_api_key")
+client = Mistral.init("your_api_key")
 
 {:ok, response} = Mistral.chat(client,
   model: "mistral-small-latest",
@@ -64,16 +72,64 @@ config :mistral, :api_key, "your_mistral_api_key"
   stream: true
 )
 
-stream
-|> Stream.each(fn chunk -> IO.write(chunk["choices"][0]["delta"]["content"] || "") end)
-|> Stream.run()
+# Collect all streamed content into a single string
+{:ok, content} = Mistral.Streaming.collect_content(stream)
+```
+
+### FIM (Fill-in-the-Middle) Completion
+
+```elixir
+{:ok, response} = Mistral.fim(client,
+  model: "codestral-latest",
+  prompt: "def fibonacci(n):\n    ",
+  suffix: "\n    return result"
+)
 ```
 
 ### Embeddings
 
 ```elixir
-{:ok, embeddings} = Mistral.embed(client,
+{:ok, response} = Mistral.embed(client,
   input: ["Hello, world!", "This is an embedding test"]
+)
+
+# Compute cosine similarity between two embeddings
+[emb1, emb2] = Mistral.Embeddings.extract_embeddings(response)
+similarity = Mistral.Embeddings.cosine_similarity(emb1, emb2)
+```
+
+### Conversations
+
+```elixir
+{:ok, response} = Mistral.create_conversation(client,
+  inputs: "What is the capital of France?",
+  model: "mistral-small-latest"
+)
+
+conversation_id = Mistral.Conversations.extract_conversation_id(response)
+
+{:ok, followup} = Mistral.append_conversation(client, conversation_id,
+  inputs: "And what about Germany?"
+)
+```
+
+### Agent Completion
+
+```elixir
+{:ok, response} = Mistral.agent_completion(client,
+  agent_id: "your_agent_id",
+  messages: [
+    %{role: "user", content: "Help me with this task"}
+  ]
+)
+```
+
+### Classification
+
+```elixir
+{:ok, result} = Mistral.classify(client,
+  model: "mistral-moderation-latest",
+  inputs: ["Some text to classify"]
 )
 ```
 
@@ -120,6 +176,18 @@ user_schema = %{
 )
 ```
 
+### Response Caching
+
+Enable caching to avoid redundant API calls for deterministic endpoints:
+
+```elixir
+client = Mistral.init("your_api_key", cache: true, cache_ttl: :timer.minutes(10))
+
+# Repeated calls to deterministic endpoints (embeddings, classifications, etc.)
+# will be served from cache
+{:ok, response} = Mistral.embed(client, input: ["Hello, world!"])
+```
+
 ## Credits & Acknowledgments
 
 This package was heavily inspired by and draws from the excellent implementations of:
@@ -138,10 +206,18 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [X] OCR (Optical Character Recognition) Support
 - [X] Enhanced Error Handling
 - [X] Response Format Control (JSON mode with schema validation)
-- [ ] Classification/Moderation API
-- [ ] Batch Processing Support
-- [ ] Complete File Operations (list, delete, download)
-- [ ] Advanced Streaming Improvements
+- [X] Classification/Moderation API
+- [X] Batch Processing Support
+- [X] Complete File Operations (list, delete, download)
+- [X] Advanced Streaming Improvements
+- [X] Conversations API
+- [X] Agents API
+- [X] Fine-tuning API
+- [X] Response Caching
+- [X] Automatic Retry with Exponential Backoff
+- [ ] Guardrails API
+- [ ] Connectors API
+- [ ] Async Client Support
 
 ## License
 

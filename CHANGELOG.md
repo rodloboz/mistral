@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.5.0] - 2026-02-13
+
+### Changed
+
+- **Default automatic retry with exponential backoff**: All API requests now automatically retry transient errors (HTTP 408, 429, 5xx, and socket/connection errors) up to 3 times with exponential backoff and full jitter (base 1s, capped at 60s). Streaming requests automatically disable retries. Configurable via `init/2` options: `retry`, `max_retries`, `retry_delay`, `retry_log_level`. To restore previous behavior: `Mistral.init(key, retry: false)`.
+- **Configurable stream timeout**: Streaming requests now have a default 30-second chunk timeout (`stream_timeout: 30_000`) across all streaming schemas (chat, FIM, agent completions, conversations).
+- **Response type expanded**: `response()` type now includes `binary()` to support `download_file/2` returning raw file content.
 
 ### Added
 
