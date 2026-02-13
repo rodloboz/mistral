@@ -73,7 +73,11 @@ defmodule Mistral do
       {"user-agent",
        "mistral-ex/#{@version} (Elixir/#{System.version()}; OTP/#{System.otp_release()})"}
     ],
-    receive_timeout: 60_000
+    receive_timeout: 60_000,
+    retry: :transient,
+    retry_delay: &Mistral.Retry.delay/1,
+    max_retries: 3,
+    retry_log_level: :warning
   ]
 
   schema(:chat_message,
@@ -952,12 +956,37 @@ defmodule Mistral do
 
   Optionally, a keyword list of options can be passed through to `Req.new/1`.
 
+  ## Retry options
+
+  The client automatically retries transient errors (HTTP 408, 429, 5xx, and
+  socket/connection errors) using exponential backoff with full jitter. The
+  following retry-related options can be overridden:
+
+    * `:retry` - Retry mode. Defaults to `:transient`. Set to `false` to
+      disable retries entirely.
+    * `:max_retries` - Maximum number of retry attempts. Defaults to `3`.
+    * `:retry_delay` - A function that receives the retry count (0-indexed)
+      and returns the delay in milliseconds. Defaults to
+      `&Mistral.Retry.delay/1` (exponential backoff with full jitter,
+      capped at 60 seconds).
+    * `:retry_log_level` - Log level for retry warnings. Defaults to
+      `:warning`. Set to `false` to disable retry logging.
+
+  Streaming requests automatically disable retries since SSE streams cannot
+  be safely replayed.
+
   ## Examples
 
       iex> client = Mistral.init("YOUR_API_KEY")
       %Mistral{}
 
       iex> client = Mistral.init("YOUR_API_KEY", receive_timeout: :infinity)
+      %Mistral{}
+
+      iex> client = Mistral.init("YOUR_API_KEY", retry: false)
+      %Mistral{}
+
+      iex> client = Mistral.init("YOUR_API_KEY", max_retries: 5)
       %Mistral{}
   """
   @spec init(String.t(), keyword()) :: client()
@@ -1081,7 +1110,8 @@ defmodule Mistral do
             client
             |> req(:post, "/chat/completions",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
@@ -1224,7 +1254,8 @@ defmodule Mistral do
             client
             |> req(:post, "/fim/completions",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
@@ -1901,7 +1932,8 @@ defmodule Mistral do
             client
             |> req(:post, "/conversations",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
@@ -2006,7 +2038,8 @@ defmodule Mistral do
             client
             |> req(:post, "/conversations/#{conversation_id}",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
@@ -2094,7 +2127,8 @@ defmodule Mistral do
             client
             |> req(:post, "/conversations/#{conversation_id}/restart",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
@@ -2431,7 +2465,8 @@ defmodule Mistral do
             client
             |> req(:post, "/agents/completions",
               json: Enum.into(params, %{}),
-              into: stream_handler(dest)
+              into: stream_handler(dest),
+              retry: false
             )
             |> res()
           end)
