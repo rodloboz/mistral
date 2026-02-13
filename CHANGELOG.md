@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **Conversations API**: Added managed conversation state with multi-turn handling, history retrieval, and streaming support
+  - `create_conversation/2` - Create a new conversation with string or entry list inputs via `/conversations` with full streaming support (`stream: true` or `stream: pid`)
+  - `list_conversations/2` - List conversations with pagination (`page`, `page_size`)
+  - `get_conversation/2` - Retrieve a conversation by ID
+  - `delete_conversation/2` - Delete a conversation by ID
+  - `append_conversation/3` - Append entries to an existing conversation via POST `/conversations/{id}` with full streaming support
+  - `get_conversation_history/2` - Retrieve conversation history (input/output entries) via `/conversations/{id}/history`
+  - `get_conversation_messages/2` - Retrieve conversation messages via `/conversations/{id}/messages`
+  - `restart_conversation/3` - Restart a conversation from a specific entry via `/conversations/{id}/restart` with full streaming support
 - **Agents API**: Added full CRUD operations for agents, versioning, aliases, and agent completions with streaming support
   - `create_agent/2` - Create an agent with model, name, instructions, tools, and completion args via `/agents`
   - `list_agents/2` - List agents with filtering (`name`, `id`, `sources`, `deployment_chat`) and pagination (`page`, `page_size`)
