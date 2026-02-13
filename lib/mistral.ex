@@ -282,6 +282,82 @@ defmodule Mistral do
     ]
   )
 
+  schema(:batch_request,
+    custom_id: [type: :string, doc: "*(optional)* Custom identifier for this request."],
+    body: [
+      type: @permissive_map,
+      required: true,
+      doc: "The request body for the batch inference."
+    ]
+  )
+
+  schema(:create_batch_job,
+    input_files: [
+      type: {:list, :string},
+      doc: "*(optional)* List of file IDs (UUIDs) to use as input. Files must be JSONL format."
+    ],
+    requests: [
+      type: {:list, {:map, nested_schema(:batch_request)}},
+      doc: "*(optional)* Inline list of batch requests (max 10,000)."
+    ],
+    endpoint: [
+      type:
+        {:in,
+         [
+           "/v1/chat/completions",
+           "/v1/embeddings",
+           "/v1/fim/completions",
+           "/v1/moderations",
+           "/v1/chat/moderations",
+           "/v1/ocr",
+           "/v1/classifications",
+           "/v1/chat/classifications"
+         ]},
+      required: true,
+      doc: "The API endpoint to use for batch inference."
+    ],
+    model: [type: :string, doc: "*(optional)* The model to use for batch inference."],
+    metadata: [
+      type: @permissive_map,
+      doc: "*(optional)* Metadata to associate with the batch job."
+    ],
+    timeout_hours: [type: :integer, default: 24, doc: "Timeout in hours for the batch job."]
+  )
+
+  schema(:list_batch_jobs,
+    page: [type: :integer, doc: "*(optional)* Page number (0-indexed)."],
+    page_size: [type: :integer, doc: "*(optional)* Number of items per page."],
+    model: [type: :string, doc: "*(optional)* Filter by model."],
+    created_after: [
+      type: :string,
+      doc: "*(optional)* Filter jobs created after this datetime (ISO 8601)."
+    ],
+    created_by_me: [
+      type: :boolean,
+      default: false,
+      doc: "*(optional)* Only return jobs created by the current user."
+    ],
+    status: [
+      type:
+        {:list,
+         {:in,
+          [
+            "QUEUED",
+            "RUNNING",
+            "SUCCESS",
+            "FAILED",
+            "TIMEOUT_EXCEEDED",
+            "CANCELLATION_REQUESTED",
+            "CANCELLED"
+          ]}},
+      doc: "*(optional)* Filter by job status."
+    ]
+  )
+
+  schema(:get_batch_job_opts,
+    inline: [type: :boolean, doc: "*(optional)* If true, return results inline in the response."]
+  )
+
   schema(:fim,
     model: [
       type: :string,
@@ -870,6 +946,111 @@ defmodule Mistral do
   end
 
   @doc """
+  Create a batch job for asynchronous batch inference.
+
+  Provide either `input_files` (list of uploaded JSONL file IDs) or `requests`
+  (inline list of batch request objects). The `endpoint` parameter specifies which
+  API endpoint to use for processing.
+
+  ## Options
+
+  #{doc(:create_batch_job)}
+
+  ## Batch request structure
+
+  #{doc(:batch_request)}
+
+  ## Examples
+
+      iex> Mistral.create_batch_job(client,
+      ...>   endpoint: "/v1/chat/completions",
+      ...>   input_files: ["file-abc123"]
+      ...> )
+      {:ok, %{"id" => "b_abc123", "status" => "QUEUED", ...}}
+
+      iex> Mistral.create_batch_job(client,
+      ...>   endpoint: "/v1/chat/completions",
+      ...>   model: "mistral-small-latest",
+      ...>   requests: [
+      ...>     %{custom_id: "req-1", body: %{messages: [%{role: "user", content: "Hello"}]}}
+      ...>   ]
+      ...> )
+      {:ok, %{"id" => "b_abc123", "status" => "QUEUED", ...}}
+  """
+  @spec create_batch_job(client(), keyword()) :: response()
+  def create_batch_job(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:create_batch_job)) do
+      client
+      |> req(:post, "/batch/jobs", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  List batch jobs with optional filtering and pagination.
+
+  ## Options
+
+  #{doc(:list_batch_jobs)}
+
+  ## Examples
+
+      iex> Mistral.list_batch_jobs(client)
+      {:ok, %{"object" => "list", "data" => [...], "total" => 2}}
+
+      iex> Mistral.list_batch_jobs(client, status: ["QUEUED", "RUNNING"], model: "mistral-small-latest")
+      {:ok, %{"object" => "list", "data" => [...], "total" => 1}}
+  """
+  @spec list_batch_jobs(client(), keyword()) :: response()
+  def list_batch_jobs(%__MODULE__{} = client, opts \\ []) when is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_batch_jobs)) do
+      client
+      |> req(:get, "/batch/jobs", params: expand_list_params(opts))
+      |> res()
+    end
+  end
+
+  @doc """
+  Retrieve a batch job by its ID.
+
+  ## Options
+
+  #{doc(:get_batch_job_opts)}
+
+  ## Examples
+
+      iex> Mistral.get_batch_job(client, "b_abc123")
+      {:ok, %{"id" => "b_abc123", "status" => "QUEUED", ...}}
+
+      iex> Mistral.get_batch_job(client, "b_abc123", inline: true)
+      {:ok, %{"id" => "b_abc123", "status" => "SUCCESS", "results" => [...], ...}}
+  """
+  @spec get_batch_job(client(), String.t(), keyword()) :: response()
+  def get_batch_job(%__MODULE__{} = client, job_id, opts \\ [])
+      when is_binary(job_id) and is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:get_batch_job_opts)) do
+      client
+      |> req(:get, "/batch/jobs/#{job_id}", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Cancel a batch job by its ID.
+
+  ## Examples
+
+      iex> Mistral.cancel_batch_job(client, "b_abc123")
+      {:ok, %{"id" => "b_abc123", "status" => "CANCELLATION_REQUESTED", ...}}
+  """
+  @spec cancel_batch_job(client(), String.t()) :: response()
+  def cancel_batch_job(%__MODULE__{} = client, job_id) when is_binary(job_id) do
+    client
+    |> req(:post, "/batch/jobs/#{job_id}/cancel", json: %{})
+    |> res()
+  end
+
+  @doc """
   Uploads a file to the Mistral API.
 
   ## Options
@@ -1020,6 +1201,13 @@ defmodule Mistral do
     client
     |> req(:get, "/files/#{file_id}/content")
     |> res()
+  end
+
+  defp expand_list_params(opts) do
+    Enum.flat_map(opts, fn
+      {key, values} when is_list(values) -> Enum.map(values, &{key, &1})
+      pair -> [pair]
+    end)
   end
 
   defp read_file(file_path) do

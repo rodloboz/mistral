@@ -227,6 +227,73 @@ defmodule Mistral.Mock do
         "total_tokens" => 20
       }
     },
+    batch_job: %{
+      "id" => "b_abc123",
+      "object" => "batch",
+      "input_files" => ["file-abc123"],
+      "endpoint" => "/v1/chat/completions",
+      "model" => "mistral-small-latest",
+      "metadata" => nil,
+      "output_file" => nil,
+      "error_file" => nil,
+      "errors" => [],
+      "status" => "QUEUED",
+      "created_at" => 1_702_256_327,
+      "total_requests" => 2,
+      "completed_requests" => 0,
+      "succeeded_requests" => 0,
+      "failed_requests" => 0,
+      "started_at" => nil,
+      "completed_at" => nil
+    },
+    batch_jobs: %{
+      "object" => "list",
+      "data" => [
+        %{
+          "id" => "b_abc123",
+          "object" => "batch",
+          "input_files" => ["file-abc123"],
+          "endpoint" => "/v1/chat/completions",
+          "model" => "mistral-small-latest",
+          "errors" => [],
+          "status" => "QUEUED",
+          "created_at" => 1_702_256_327,
+          "total_requests" => 2,
+          "completed_requests" => 0,
+          "succeeded_requests" => 0,
+          "failed_requests" => 0
+        },
+        %{
+          "id" => "b_def456",
+          "object" => "batch",
+          "input_files" => ["file-def456"],
+          "endpoint" => "/v1/embeddings",
+          "model" => "mistral-embed",
+          "errors" => [],
+          "status" => "SUCCESS",
+          "created_at" => 1_702_256_400,
+          "total_requests" => 5,
+          "completed_requests" => 5,
+          "succeeded_requests" => 5,
+          "failed_requests" => 0
+        }
+      ],
+      "total" => 2
+    },
+    batch_job_cancelled: %{
+      "id" => "b_abc123",
+      "object" => "batch",
+      "input_files" => ["file-abc123"],
+      "endpoint" => "/v1/chat/completions",
+      "model" => "mistral-small-latest",
+      "errors" => [],
+      "status" => "CANCELLATION_REQUESTED",
+      "created_at" => 1_702_256_327,
+      "total_requests" => 2,
+      "completed_requests" => 0,
+      "succeeded_requests" => 0,
+      "failed_requests" => 0
+    },
     classification: %{
       "id" => "clf-abc123",
       "model" => "mistral-moderation-latest",
@@ -591,6 +658,9 @@ defmodule Mistral.Mock do
           :embeddings => any(),
           :tool_use => any(),
           :fim_completion => any(),
+          :batch_job => any(),
+          :batch_jobs => any(),
+          :batch_job_cancelled => any(),
           :classification => any(),
           :classifications => any(),
           :moderation => any(),

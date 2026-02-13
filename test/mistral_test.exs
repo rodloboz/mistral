@@ -740,6 +740,173 @@ defmodule MistralTest do
     end
   end
 
+  describe "create_batch_job/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :batch_job))
+      {:ok, client: client}
+    end
+
+    test "validates parameters - missing endpoint", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_batch_job(client, input_files: ["file-abc123"])
+    end
+
+    test "creates a batch job with input_files", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_batch_job(client,
+                 endpoint: "/v1/chat/completions",
+                 input_files: ["file-abc123"]
+               )
+
+      assert res["id"] == "b_abc123"
+      assert res["object"] == "batch"
+      assert res["status"] == "QUEUED"
+      assert res["endpoint"] == "/v1/chat/completions"
+      assert res["input_files"] == ["file-abc123"]
+    end
+
+    test "creates a batch job with inline requests", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_batch_job(client,
+                 endpoint: "/v1/chat/completions",
+                 model: "mistral-small-latest",
+                 requests: [
+                   %{
+                     custom_id: "req-1",
+                     body: %{
+                       messages: [%{role: "user", content: "Hello"}]
+                     }
+                   }
+                 ]
+               )
+
+      assert res["id"] == "b_abc123"
+      assert res["status"] == "QUEUED"
+    end
+
+    test "accepts metadata and timeout_hours", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_batch_job(client,
+                 endpoint: "/v1/chat/completions",
+                 input_files: ["file-abc123"],
+                 metadata: %{project: "test"},
+                 timeout_hours: 48
+               )
+
+      assert res["id"] == "b_abc123"
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.create_batch_job(client,
+                 endpoint: "/v1/chat/completions",
+                 input_files: ["file-abc123"]
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_batch_jobs/2" do
+    test "lists batch jobs with no options" do
+      client = Mock.client(&Mock.respond(&1, :batch_jobs))
+      assert {:ok, res} = Mistral.list_batch_jobs(client)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+      assert res["total"] == 2
+
+      job = Enum.at(res["data"], 0)
+      assert job["id"] == "b_abc123"
+      assert job["object"] == "batch"
+    end
+
+    test "lists batch jobs with filtering options" do
+      client = Mock.client(&Mock.respond(&1, :batch_jobs))
+
+      assert {:ok, res} =
+               Mistral.list_batch_jobs(client,
+                 model: "mistral-small-latest",
+                 status: ["QUEUED", "RUNNING"]
+               )
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "lists batch jobs with pagination" do
+      client = Mock.client(&Mock.respond(&1, :batch_jobs))
+      assert {:ok, res} = Mistral.list_batch_jobs(client, page: 0, page_size: 10)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} = Mistral.list_batch_jobs(client)
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "get_batch_job/3" do
+    test "retrieves a batch job by ID" do
+      client = Mock.client(&Mock.respond(&1, :batch_job))
+      assert {:ok, res} = Mistral.get_batch_job(client, "b_abc123")
+
+      assert res["id"] == "b_abc123"
+      assert res["object"] == "batch"
+      assert res["status"] == "QUEUED"
+      assert res["endpoint"] == "/v1/chat/completions"
+      assert res["model"] == "mistral-small-latest"
+      assert res["total_requests"] == 2
+    end
+
+    test "retrieves a batch job with inline option" do
+      client = Mock.client(&Mock.respond(&1, :batch_job))
+      assert {:ok, res} = Mistral.get_batch_job(client, "b_abc123", inline: true)
+
+      assert res["id"] == "b_abc123"
+    end
+
+    test "handles job not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_batch_job(client, "nonexistent-job-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "cancel_batch_job/2" do
+    test "cancels a batch job" do
+      client = Mock.client(&Mock.respond(&1, :batch_job_cancelled))
+      assert {:ok, res} = Mistral.cancel_batch_job(client, "b_abc123")
+
+      assert res["id"] == "b_abc123"
+      assert res["status"] == "CANCELLATION_REQUESTED"
+    end
+
+    test "handles job not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.cancel_batch_job(client, "nonexistent-job-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
   describe "upload_file/3" do
     test "uploads a file successfully" do
       client = Mock.client(&Mock.respond(&1, :file_upload))

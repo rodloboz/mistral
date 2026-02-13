@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `classify_chat/2` - Classify chat conversations via `/chat/classifications`
   - `moderate/2` - Moderate text input via `/moderations`
   - `moderate_chat/2` - Moderate chat conversations via `/chat/moderations`
+- **Batch API**: Added batch job endpoints for asynchronous batch inference
+  - `create_batch_job/2` - Create a batch job with input files or inline requests via `/batch/jobs`
+  - `list_batch_jobs/2` - List batch jobs with filtering (`model`, `status`, `created_after`, `created_by_me`) and pagination (`page`, `page_size`)
+  - `get_batch_job/3` - Retrieve a batch job by ID with optional inline results
+  - `cancel_batch_job/2` - Cancel a batch job by ID
 - **FIM Completions API**: Added fill-in-the-middle code completion endpoint with streaming support
   - `fim/2` - Code completion via `/fim/completions` with prompt, optional suffix, and full streaming support (`stream: true` or `stream: pid`)
 - **Complete File Operations**: Added missing file management endpoints to complete the file lifecycle
