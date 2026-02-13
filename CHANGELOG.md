@@ -71,6 +71,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Defaults to 3 max retries with `:warning` log level
   - Streaming requests automatically disable retries since SSE streams cannot be safely replayed
   - Fully configurable via `init/2` options: `retry`, `max_retries`, `retry_delay`, `retry_log_level`
+- **Streaming Utilities**: Added `Mistral.Streaming` module with stream transformation, content extraction, and multiplexing utilities for streaming responses
+  - `collect_content/1` - Concatenate all content deltas into a single string (eager)
+  - `accumulate_response/1` - Build a complete response map matching the non-streaming shape (eager)
+  - `each_content/2` - Side-effect callback per content delta, passing chunks through (lazy)
+  - `extract_usage/1` - Extract token usage information from a stream (eager)
+  - `map_content/2` - Transform content deltas in place (lazy)
+  - `reduce_content/3` - General-purpose accumulator over content deltas (eager)
+  - `filter_content/2` - Filter chunks by content predicate, non-content chunks pass through (lazy)
+  - `tee/2` - Fork stream to also send chunks to a PID (lazy)
+  - `merge/1` - Merge multiple concurrent streams into a single interleaved stream (lazy)
+  - Auto-detects chunk format: chat-style (chat, FIM, agent) and conversation-style
+- **Configurable Stream Timeout**: Added `stream_timeout` option (default 30000ms) to all streaming schemas (`chat`, `fim`, `agent_completion`, `create_conversation`, `append_conversation`, `restart_conversation`)
 
 ## [0.4.0] - 2025-07-20
 
