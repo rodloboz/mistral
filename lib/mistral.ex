@@ -668,6 +668,138 @@ defmodule Mistral do
     ]
   )
 
+  schema(:agent_tool,
+    type: [
+      type:
+        {:in,
+         [
+           "function",
+           "web_search",
+           "web_search_premium",
+           "code_interpreter",
+           "image_generation",
+           "document_library"
+         ]},
+      required: true,
+      doc: "The type of tool."
+    ],
+    function: [
+      type: :map,
+      keys: nested_schema(:function_def),
+      doc: "*(required when type is 'function')* The function definition."
+    ],
+    library_ids: [
+      type: {:list, :string},
+      doc: "*(required when type is 'document_library')* IDs of the libraries to search."
+    ]
+  )
+
+  schema(:completion_args,
+    stop: [type: {:or, [:string, {:list, :string}]}, doc: "Stop token(s)."],
+    presence_penalty: [type: :float, doc: "Presence penalty (-2 to 2)."],
+    frequency_penalty: [type: :float, doc: "Frequency penalty (-2 to 2)."],
+    temperature: [type: :float, doc: "Temperature (0 to 1)."],
+    top_p: [type: :float, doc: "Top-p sampling (0 to 1)."],
+    max_tokens: [type: :non_neg_integer, doc: "Maximum tokens."],
+    random_seed: [type: :non_neg_integer, doc: "Random seed."],
+    response_format: [
+      type: {:or, [{:map, nested_schema(:response_format)}, nil]},
+      doc: "Response format."
+    ],
+    tool_choice: [
+      type: {:in, ["auto", "none", "any", "required"]},
+      default: "auto",
+      doc: "Tool choice strategy."
+    ]
+  )
+
+  schema(:create_agent,
+    model: [type: :string, required: true, doc: "Model ID to use."],
+    name: [type: :string, required: true, doc: "Agent name."],
+    instructions: [type: {:or, [:string, nil]}, doc: "System instructions."],
+    tools: [
+      type: {:list, {:map, nested_schema(:agent_tool)}},
+      doc: "Available tools."
+    ],
+    completion_args: [
+      type: :map,
+      keys: nested_schema(:completion_args),
+      doc: "Default completion arguments."
+    ],
+    description: [type: {:or, [:string, nil]}, doc: "Agent description."],
+    handoffs: [type: {:list, :string}, doc: "Agent IDs for handoff."],
+    metadata: [type: @permissive_map, doc: "Custom metadata."]
+  )
+
+  schema(:update_agent,
+    model: [type: {:or, [:string, nil]}, doc: "Model ID."],
+    name: [type: {:or, [:string, nil]}, doc: "Agent name."],
+    instructions: [type: {:or, [:string, nil]}, doc: "System instructions."],
+    tools: [
+      type: {:list, {:map, nested_schema(:agent_tool)}},
+      doc: "Available tools."
+    ],
+    completion_args: [
+      type: :map,
+      keys: nested_schema(:completion_args),
+      doc: "Default completion arguments."
+    ],
+    description: [type: {:or, [:string, nil]}, doc: "Agent description."],
+    handoffs: [type: {:or, [{:list, :string}, nil]}, doc: "Agent IDs for handoff."],
+    deployment_chat: [type: {:or, [:boolean, nil]}, doc: "Deployment chat flag."],
+    metadata: [type: @permissive_map, doc: "Custom metadata."]
+  )
+
+  schema(:list_agents,
+    page: [type: :integer, doc: "Page number (0-indexed)."],
+    page_size: [type: :integer, doc: "Items per page (1-1000)."],
+    deployment_chat: [type: :boolean, doc: "Filter by deployment chat."],
+    sources: [
+      type: {:list, {:in, ["api", "playground", "agent_builder_v1"]}},
+      doc: "Filter by sources."
+    ],
+    name: [type: :string, doc: "Filter by name."],
+    id: [type: :string, doc: "Filter by ID."]
+  )
+
+  schema(:get_agent_opts,
+    agent_version: [
+      type: {:or, [:integer, :string]},
+      doc: "Version number or alias."
+    ]
+  )
+
+  schema(:list_agent_versions,
+    page: [type: :integer, doc: "Page number (0-indexed)."],
+    page_size: [type: :integer, doc: "Versions per page (1-100)."]
+  )
+
+  schema(:agent_completion,
+    agent_id: [type: :string, required: true, doc: "ID of the agent."],
+    messages: [
+      type: {:list, {:map, nested_schema(:chat_message)}},
+      required: true,
+      doc: "Messages."
+    ],
+    max_tokens: [type: :non_neg_integer, doc: "Maximum tokens."],
+    stream: [type: {:or, [:boolean, :pid]}, default: false, doc: "Stream response."],
+    stop: [type: {:or, [:string, {:list, :string}]}, doc: "Stop token(s)."],
+    random_seed: [type: :non_neg_integer, doc: "Random seed."],
+    response_format: [
+      type: {:or, [{:map, nested_schema(:response_format)}, nil]},
+      doc: "Response format."
+    ],
+    tools: [
+      type: {:list, {:map, nested_schema(:tool_def)}},
+      doc: "Available tools."
+    ],
+    tool_choice: [type: {:or, [:string, @permissive_map]}, doc: "Tool choice."],
+    presence_penalty: [type: :float, default: 0.0, doc: "Presence penalty."],
+    frequency_penalty: [type: :float, default: 0.0, doc: "Frequency penalty."],
+    n: [type: :pos_integer, doc: "Number of completions."],
+    metadata: [type: @permissive_map, doc: "Custom metadata."]
+  )
+
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
 
@@ -1690,6 +1822,268 @@ defmodule Mistral do
     client
     |> req(:delete, "/models/#{model_id}")
     |> res()
+  end
+
+  @doc """
+  Create an agent.
+
+  ## Options
+
+  #{doc(:create_agent)}
+
+  ## Agent tool structure
+
+  #{doc(:agent_tool)}
+
+  ## Completion arguments structure
+
+  #{doc(:completion_args)}
+
+  ## Examples
+
+      iex> Mistral.create_agent(client,
+      ...>   model: "mistral-large-latest",
+      ...>   name: "My Agent",
+      ...>   instructions: "You are a helpful assistant."
+      ...> )
+      {:ok, %{"id" => "ag_abc123", "name" => "My Agent", ...}}
+  """
+  @spec create_agent(client(), keyword()) :: response()
+  def create_agent(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:create_agent)) do
+      client
+      |> req(:post, "/agents", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  List agents with optional filtering and pagination.
+
+  ## Options
+
+  #{doc(:list_agents)}
+
+  ## Examples
+
+      iex> Mistral.list_agents(client)
+      {:ok, %{"object" => "list", "data" => [...], "total" => 2}}
+
+      iex> Mistral.list_agents(client, page: 0, page_size: 10)
+      {:ok, %{"object" => "list", "data" => [...], "total" => 2}}
+  """
+  @spec list_agents(client(), keyword()) :: response()
+  def list_agents(%__MODULE__{} = client, opts \\ []) when is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_agents)) do
+      client
+      |> req(:get, "/agents", params: expand_list_params(opts))
+      |> res()
+    end
+  end
+
+  @doc """
+  Retrieve an agent by its ID.
+
+  ## Options
+
+  #{doc(:get_agent_opts)}
+
+  ## Examples
+
+      iex> Mistral.get_agent(client, "ag_abc123")
+      {:ok, %{"id" => "ag_abc123", "name" => "My Agent", ...}}
+
+      iex> Mistral.get_agent(client, "ag_abc123", agent_version: 2)
+      {:ok, %{"id" => "ag_abc123", "version" => 2, ...}}
+  """
+  @spec get_agent(client(), String.t(), keyword()) :: response()
+  def get_agent(%__MODULE__{} = client, agent_id, opts \\ [])
+      when is_binary(agent_id) and is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:get_agent_opts)) do
+      client
+      |> req(:get, "/agents/#{agent_id}", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Update an agent. Creates a new version of the agent.
+
+  ## Options
+
+  #{doc(:update_agent)}
+
+  ## Examples
+
+      iex> Mistral.update_agent(client, "ag_abc123",
+      ...>   name: "Updated Agent",
+      ...>   instructions: "New instructions."
+      ...> )
+      {:ok, %{"id" => "ag_abc123", "name" => "Updated Agent", ...}}
+  """
+  @spec update_agent(client(), String.t(), keyword()) :: response()
+  def update_agent(%__MODULE__{} = client, agent_id, params)
+      when is_binary(agent_id) and is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:update_agent)) do
+      client
+      |> req(:patch, "/agents/#{agent_id}", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Delete an agent by its ID.
+
+  ## Examples
+
+      iex> Mistral.delete_agent(client, "ag_abc123")
+      {:ok, %{}}
+  """
+  @spec delete_agent(client(), String.t()) :: response()
+  def delete_agent(%__MODULE__{} = client, agent_id) when is_binary(agent_id) do
+    client
+    |> req(:delete, "/agents/#{agent_id}")
+    |> res()
+  end
+
+  @doc """
+  Switch an agent to a specific version.
+
+  ## Examples
+
+      iex> Mistral.update_agent_version(client, "ag_abc123", 2)
+      {:ok, %{"id" => "ag_abc123", "version" => 2, ...}}
+  """
+  @spec update_agent_version(client(), String.t(), integer()) :: response()
+  def update_agent_version(%__MODULE__{} = client, agent_id, version)
+      when is_binary(agent_id) and is_integer(version) do
+    client
+    |> req(:patch, "/agents/#{agent_id}/version", json: %{version: version})
+    |> res()
+  end
+
+  @doc """
+  List all versions of an agent.
+
+  ## Options
+
+  #{doc(:list_agent_versions)}
+
+  ## Examples
+
+      iex> Mistral.list_agent_versions(client, "ag_abc123")
+      {:ok, %{"object" => "list", "data" => [...], "total" => 3}}
+  """
+  @spec list_agent_versions(client(), String.t(), keyword()) :: response()
+  def list_agent_versions(%__MODULE__{} = client, agent_id, opts \\ [])
+      when is_binary(agent_id) and is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_agent_versions)) do
+      client
+      |> req(:get, "/agents/#{agent_id}/versions", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Get a specific version of an agent.
+
+  ## Examples
+
+      iex> Mistral.get_agent_version(client, "ag_abc123", 2)
+      {:ok, %{"id" => "ag_abc123", "version" => 2, ...}}
+  """
+  @spec get_agent_version(client(), String.t(), integer()) :: response()
+  def get_agent_version(%__MODULE__{} = client, agent_id, version)
+      when is_binary(agent_id) and is_integer(version) do
+    client
+    |> req(:get, "/agents/#{agent_id}/versions/#{version}")
+    |> res()
+  end
+
+  @doc """
+  Create or update a version alias for an agent.
+
+  ## Examples
+
+      iex> Mistral.create_or_update_agent_alias(client, "ag_abc123", "production", 2)
+      {:ok, %{"alias" => "production", "version" => 2, ...}}
+  """
+  @spec create_or_update_agent_alias(client(), String.t(), String.t(), integer()) :: response()
+  def create_or_update_agent_alias(%__MODULE__{} = client, agent_id, alias_name, version)
+      when is_binary(agent_id) and is_binary(alias_name) and is_integer(version) do
+    client
+    |> req(:put, "/agents/#{agent_id}/aliases", json: %{alias: alias_name, version: version})
+    |> res()
+  end
+
+  @doc """
+  List all version aliases for an agent.
+
+  ## Examples
+
+      iex> Mistral.list_agent_aliases(client, "ag_abc123")
+      {:ok, %{"object" => "list", "data" => [...], "total" => 2}}
+  """
+  @spec list_agent_aliases(client(), String.t()) :: response()
+  def list_agent_aliases(%__MODULE__{} = client, agent_id) when is_binary(agent_id) do
+    client
+    |> req(:get, "/agents/#{agent_id}/aliases")
+    |> res()
+  end
+
+  @doc """
+  Send a completion request to an agent.
+
+  ## Options
+
+  #{doc(:agent_completion)}
+
+  ## Examples
+
+      iex> Mistral.agent_completion(client,
+      ...>   agent_id: "ag_abc123",
+      ...>   messages: [%{role: "user", content: "Hello!"}]
+      ...> )
+      {:ok, %{"choices" => [%{"message" => %{"content" => "..."}}], ...}}
+
+      # Stream the response
+      iex> {:ok, stream} = Mistral.agent_completion(client,
+      ...>   agent_id: "ag_abc123",
+      ...>   messages: [%{role: "user", content: "Hello!"}],
+      ...>   stream: true
+      ...> )
+      iex> Enum.to_list(stream)
+      [%{"choices" => [%{"delta" => ...}]}, ...]
+  """
+  @spec agent_completion(client(), keyword()) :: response()
+  def agent_completion(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:agent_completion)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/agents/completions",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
+          end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
+      else
+        client
+        |> req(:post, "/agents/completions", json: Enum.into(params, %{}))
+        |> res()
+      end
+    end
   end
 
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()

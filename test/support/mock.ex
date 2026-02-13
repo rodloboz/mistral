@@ -561,6 +561,93 @@ defmodule Mistral.Mock do
           }
         }
       ]
+    },
+    agent: %{
+      "id" => "ag_abc123",
+      "object" => "agent",
+      "name" => "My Agent",
+      "model" => "mistral-large-latest",
+      "version" => 1,
+      "instructions" => "You are a helpful assistant.",
+      "tools" => [],
+      "completion_args" => %{},
+      "description" => nil,
+      "handoffs" => [],
+      "metadata" => %{},
+      "created_at" => 1_702_256_327,
+      "updated_at" => 1_702_256_327
+    },
+    agents: %{
+      "object" => "list",
+      "data" => [
+        %{
+          "id" => "ag_abc123",
+          "object" => "agent",
+          "name" => "My Agent",
+          "model" => "mistral-large-latest",
+          "version" => 1,
+          "created_at" => 1_702_256_327,
+          "updated_at" => 1_702_256_327
+        },
+        %{
+          "id" => "ag_def456",
+          "object" => "agent",
+          "name" => "Another Agent",
+          "model" => "mistral-small-latest",
+          "version" => 1,
+          "created_at" => 1_702_256_400,
+          "updated_at" => 1_702_256_400
+        }
+      ],
+      "total" => 2
+    },
+    agent_alias: %{
+      "agent_id" => "ag_abc123",
+      "alias" => "production",
+      "version" => 2,
+      "created_at" => 1_702_256_327,
+      "updated_at" => 1_702_256_327
+    },
+    agent_aliases: %{
+      "object" => "list",
+      "data" => [
+        %{
+          "agent_id" => "ag_abc123",
+          "alias" => "production",
+          "version" => 2,
+          "created_at" => 1_702_256_327,
+          "updated_at" => 1_702_256_327
+        },
+        %{
+          "agent_id" => "ag_abc123",
+          "alias" => "staging",
+          "version" => 1,
+          "created_at" => 1_702_256_327,
+          "updated_at" => 1_702_256_327
+        }
+      ],
+      "total" => 2
+    },
+    agent_completion: %{
+      "id" => "cmpl-agent-abc123",
+      "object" => "chat.completion",
+      "created" => 1_702_256_327,
+      "model" => "mistral-large-latest",
+      "choices" => [
+        %{
+          "index" => 0,
+          "message" => %{
+            "role" => "assistant",
+            "content" => "Hello! How can I help you today?"
+          },
+          "finish_reason" => "stop"
+        }
+      ],
+      "usage" => %{
+        "prompt_tokens" => 10,
+        "completion_tokens" => 12,
+        "total_tokens" => 22
+      }
     }
   }
 
@@ -773,6 +860,52 @@ defmodule Mistral.Mock do
           "total_tokens" => 20
         }
       }
+    ],
+    agent_completion: [
+      %{
+        "id" => "cmpl-agent-abc123",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-large-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"role" => "assistant"},
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "cmpl-agent-abc123",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-large-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"content" => "Hello! How can I "},
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "cmpl-agent-abc123",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "mistral-large-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"content" => "help you today?"},
+            "finish_reason" => "stop"
+          }
+        ],
+        "usage" => %{
+          "prompt_tokens" => 10,
+          "completion_tokens" => 12,
+          "total_tokens" => 22
+        }
+      }
     ]
   }
 
@@ -805,6 +938,11 @@ defmodule Mistral.Mock do
           :classifications => any(),
           :moderation => any(),
           :moderations => any(),
+          :agent => any(),
+          :agents => any(),
+          :agent_alias => any(),
+          :agent_aliases => any(),
+          :agent_completion => any(),
           optional(any()) => any()
         }
   def get_mocks do
@@ -837,6 +975,11 @@ defmodule Mistral.Mock do
         }
       })
     )
+  end
+
+  @spec respond_empty(Plug.Conn.t()) :: Plug.Conn.t()
+  def respond_empty(conn) do
+    send_resp(conn, 204, "")
   end
 
   @spec respond_raw(Plug.Conn.t(), binary(), String.t()) :: Plug.Conn.t()

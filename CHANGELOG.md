@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **Agents API**: Added full CRUD operations for agents, versioning, aliases, and agent completions with streaming support
+  - `create_agent/2` - Create an agent with model, name, instructions, tools, and completion args via `/agents`
+  - `list_agents/2` - List agents with filtering (`name`, `id`, `sources`, `deployment_chat`) and pagination (`page`, `page_size`)
+  - `get_agent/3` - Retrieve an agent by ID with optional version selection (`agent_version`)
+  - `update_agent/3` - Update an agent (creates a new version) via PATCH `/agents/{agent_id}`
+  - `delete_agent/2` - Delete an agent by ID
+  - `update_agent_version/3` - Switch an agent to a specific version via PATCH `/agents/{agent_id}/version`
+  - `list_agent_versions/3` - List all versions of an agent with pagination
+  - `get_agent_version/3` - Get a specific version of an agent
+  - `create_or_update_agent_alias/4` - Create or update a version alias for an agent via PUT `/agents/{agent_id}/aliases`
+  - `list_agent_aliases/2` - List all version aliases for an agent
+  - `agent_completion/2` - Agent completions via `/agents/completions` with full streaming support (`stream: true` or `stream: pid`)
 - **Classification & Moderation API**: Added text and chat classification/moderation endpoints
   - `classify/2` - Classify text input via `/classifications`
   - `classify_chat/2` - Classify chat conversations via `/chat/classifications`
