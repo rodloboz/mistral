@@ -143,6 +143,41 @@ defmodule Mistral.Mock do
       "deleted" => false,
       "num_lines" => nil
     },
+    file_list: %{
+      "object" => "list",
+      "data" => [
+        %{
+          "id" => "file-abc123",
+          "object" => "file",
+          "bytes" => 12_345,
+          "created_at" => 1_741_023_462,
+          "filename" => "training_data.jsonl",
+          "purpose" => "fine-tune",
+          "sample_type" => "pretrain",
+          "source" => "upload",
+          "deleted" => false,
+          "num_lines" => 100
+        },
+        %{
+          "id" => "file-def456",
+          "object" => "file",
+          "bytes" => 67_890,
+          "created_at" => 1_741_023_500,
+          "filename" => "document.pdf",
+          "purpose" => "ocr",
+          "sample_type" => "ocr_input",
+          "source" => "upload",
+          "deleted" => false,
+          "num_lines" => nil
+        }
+      ],
+      "total" => 2
+    },
+    file_delete: %{
+      "id" => "file-abc123",
+      "object" => "file",
+      "deleted" => true
+    },
     ocr: %{
       "model" => "mistral-ocr-latest",
       "pages" => [
@@ -382,6 +417,13 @@ defmodule Mistral.Mock do
         }
       })
     )
+  end
+
+  @spec respond_raw(Plug.Conn.t(), binary(), String.t()) :: Plug.Conn.t()
+  def respond_raw(conn, body, content_type \\ "application/octet-stream") do
+    conn
+    |> put_resp_header("content-type", content_type)
+    |> send_resp(200, body)
   end
 
   @spec stream(Plug.Conn.t(), atom()) :: Plug.Conn.t()
