@@ -92,6 +92,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `invalidate/2` - Delete entries matching a URL substring
   - `stats/1` - Returns cache size and memory usage
   - `sweep/2` - Remove expired entries
+- **Conversation Utilities**: Added `Mistral.Conversations` module with pure-function helpers for working with conversation responses and history
+  - `extract_content/1` - Extract assistant text from the first `message.output` in a response
+  - `extract_outputs/1` - Extract full outputs list from a response
+  - `extract_conversation_id/1` - Extract conversation ID from any conversation map
+  - `extract_usage/1` - Extract token usage from a response
+  - `extract_entries/1` - Extract entries from a history response
+  - `extract_messages/1` - Extract messages from a messages response
+  - `entries_to_messages/1` - Convert history entries to chat-style `%{"role" => ..., "content" => ...}` messages, filtering non-message types
+  - `history_to_chat_messages/1` - Pipeline: extract entries → filter → convert to chat-compatible messages
+  - `response_to_message/1` - Convert a response to a single assistant message map
+  - `last_entries/2` - Last N entries from a list
+  - `last_messages/2` - Last N messages from a list
+  - `sliding_window/2` - Last N entries aligned to a `message.input` turn boundary
+  - `entry_ids/1` - Extract all entry IDs from a list of entries
+  - `find_entry/2` - Find an entry by ID (useful for `restart_conversation`)
+  - `last_output_entry/1` - Last `message.output` entry
+  - `last_input_entry/1` - Last `message.input` entry
+  - `entries_by_type/2` - Filter entries by type
+  - `outputs_by_type/2` - Filter outputs by type
+  - `build_entry_input/2` - Build a message input entry map
+  - `build_function_result_input/2` - Build a function result input entry map
+  - `build_inputs/1` - Convert mixed list of strings and maps into entry maps
 
 ## [0.4.0] - 2025-07-20
 
