@@ -20,6 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `cancel_batch_job/2` - Cancel a batch job by ID
 - **FIM Completions API**: Added fill-in-the-middle code completion endpoint with streaming support
   - `fim/2` - Code completion via `/fim/completions` with prompt, optional suffix, and full streaming support (`stream: true` or `stream: pid`)
+- **Fine-tuning API**: Added fine-tuning job and model management endpoints
+  - `create_fine_tuning_job/2` - Create a fine-tuning job with training files, hyperparameters, W&B integrations, and dry run support via `/fine_tuning/jobs`
+  - `list_fine_tuning_jobs/2` - List fine-tuning jobs with filtering (`model`, `status`, `suffix`, `wandb_project`, `created_after`, `created_before`, `created_by_me`) and pagination (`page`, `page_size`)
+  - `get_fine_tuning_job/2` - Retrieve a fine-tuning job by ID
+  - `cancel_fine_tuning_job/2` - Cancel a fine-tuning job by ID
+  - `start_fine_tuning_job/2` - Start a fine-tuning job by ID
+  - `update_fine_tuned_model/3` - Update a fine-tuned model's name and description via PATCH `/fine_tuning/models/{model_id}`
+  - `archive_fine_tuned_model/2` - Archive a fine-tuned model
+  - `unarchive_fine_tuned_model/2` - Unarchive a fine-tuned model
+  - `delete_model/2` - Delete a model by ID
 - **Complete File Operations**: Added missing file management endpoints to complete the file lifecycle
   - `list_files/2` - List uploaded files with filtering (`purpose`, `source`, `sample_type`, `search`) and pagination (`page`, `page_size`)
   - `delete_file/2` - Delete a file by ID
