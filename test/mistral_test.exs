@@ -144,7 +144,7 @@ defmodule MistralTest do
         end
 
       assert is_list(res)
-      assert length(res) > 0
+      assert res != []
 
       model_chunk =
         Enum.find(res, fn chunk ->
@@ -193,7 +193,7 @@ defmodule MistralTest do
 
       chunks = Mistral.StreamCatcher.get_state(pid)
       assert is_list(chunks)
-      assert length(chunks) > 0
+      assert chunks != []
 
       model_chunk =
         Enum.find(chunks, fn chunk ->
@@ -293,7 +293,7 @@ defmodule MistralTest do
           end)
         end)
 
-      assert length(tool_use_chunks) > 0
+      assert tool_use_chunks != []
 
       tool_calls =
         res
@@ -325,11 +325,9 @@ defmodule MistralTest do
 
       assert res["model"] == "mistral-embed"
       assert is_list(res["data"])
-      assert length(res["data"]) == 1
-
-      first_embedding = List.first(res["data"])
+      assert [first_embedding] = res["data"]
       assert is_list(first_embedding["embedding"])
-      assert length(first_embedding["embedding"]) > 0
+      assert first_embedding["embedding"] != []
     end
 
     test "generates embeddings for multiple inputs" do
@@ -340,11 +338,11 @@ defmodule MistralTest do
 
       assert res["model"] == "mistral-embed"
       assert is_list(res["data"])
-      assert length(res["data"]) == 2
+      assert [_, _] = res["data"]
 
       Enum.each(res["data"], fn embedding ->
         assert is_list(embedding["embedding"])
-        assert length(embedding["embedding"]) > 0
+        assert embedding["embedding"] != []
       end)
     end
   end
