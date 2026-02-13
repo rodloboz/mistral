@@ -347,6 +347,248 @@ defmodule MistralTest do
     end
   end
 
+  describe "classify/2" do
+    test "validates parameters" do
+      client = Mock.client(&Mock.respond(&1, :classification))
+
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.classify(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.classify(client, model: "mistral-moderation-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.classify(client, input: "Hello")
+    end
+
+    test "classifies a single text input" do
+      client = Mock.client(&Mock.respond(&1, :classification))
+
+      assert {:ok, res} =
+               Mistral.classify(client,
+                 model: "mistral-moderation-latest",
+                 input: "Hello, world!"
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert [result] = res["results"]
+      assert is_map(result["category_scores"])
+    end
+
+    test "classifies multiple text inputs" do
+      client = Mock.client(&Mock.respond(&1, :classifications))
+
+      assert {:ok, res} =
+               Mistral.classify(client,
+                 model: "mistral-moderation-latest",
+                 input: ["First text", "Second text"]
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert length(res["results"]) == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.classify(client,
+                 model: "mistral-moderation-latest",
+                 input: "Hello"
+               )
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "classify_chat/2" do
+    test "validates parameters" do
+      client = Mock.client(&Mock.respond(&1, :classification))
+
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.classify_chat(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.classify_chat(client, model: "mistral-moderation-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.classify_chat(client, input: %{messages: [%{role: "user", content: "Hi"}]})
+    end
+
+    test "classifies a single conversation" do
+      client = Mock.client(&Mock.respond(&1, :classification))
+
+      assert {:ok, res} =
+               Mistral.classify_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: %{messages: [%{role: "user", content: "Hello"}]}
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert [result] = res["results"]
+      assert is_map(result["category_scores"])
+    end
+
+    test "classifies multiple conversations" do
+      client = Mock.client(&Mock.respond(&1, :classifications))
+
+      assert {:ok, res} =
+               Mistral.classify_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: [
+                   %{messages: [%{role: "user", content: "Hello"}]},
+                   %{messages: [%{role: "user", content: "Goodbye"}]}
+                 ]
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert length(res["results"]) == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.classify_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: %{messages: [%{role: "user", content: "Hello"}]}
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "moderate/2" do
+    test "validates parameters" do
+      client = Mock.client(&Mock.respond(&1, :moderation))
+
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.moderate(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.moderate(client, model: "mistral-moderation-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.moderate(client, input: "Hello")
+    end
+
+    test "moderates a single text input" do
+      client = Mock.client(&Mock.respond(&1, :moderation))
+
+      assert {:ok, res} =
+               Mistral.moderate(client,
+                 model: "mistral-moderation-latest",
+                 input: "Hello, world!"
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert [result] = res["results"]
+      assert is_map(result["categories"])
+      assert is_map(result["category_scores"])
+
+      Enum.each(result["categories"], fn {_key, val} ->
+        assert is_boolean(val)
+      end)
+
+      Enum.each(result["category_scores"], fn {_key, val} ->
+        assert is_number(val)
+      end)
+    end
+
+    test "moderates multiple text inputs" do
+      client = Mock.client(&Mock.respond(&1, :moderations))
+
+      assert {:ok, res} =
+               Mistral.moderate(client,
+                 model: "mistral-moderation-latest",
+                 input: ["First text", "Second text"]
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert length(res["results"]) == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.moderate(client,
+                 model: "mistral-moderation-latest",
+                 input: "Hello"
+               )
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "moderate_chat/2" do
+    test "validates parameters" do
+      client = Mock.client(&Mock.respond(&1, :moderation))
+
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.moderate_chat(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.moderate_chat(client, model: "mistral-moderation-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.moderate_chat(client,
+                 input: [%{role: "user", content: "Hello"}]
+               )
+    end
+
+    test "moderates a single conversation" do
+      client = Mock.client(&Mock.respond(&1, :moderation))
+
+      assert {:ok, res} =
+               Mistral.moderate_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: [%{role: "user", content: "Hello"}]
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert [result] = res["results"]
+      assert is_map(result["categories"])
+      assert is_map(result["category_scores"])
+    end
+
+    test "moderates multiple conversations" do
+      client = Mock.client(&Mock.respond(&1, :moderations))
+
+      assert {:ok, res} =
+               Mistral.moderate_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: [
+                   [%{role: "user", content: "Hello"}],
+                   [%{role: "user", content: "Goodbye"}]
+                 ]
+               )
+
+      assert res["model"] == "mistral-moderation-latest"
+      assert is_list(res["results"])
+      assert length(res["results"]) == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.moderate_chat(client,
+                 model: "mistral-moderation-latest",
+                 input: [%{role: "user", content: "Hello"}]
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
   describe "upload_file/3" do
     test "uploads a file successfully" do
       client = Mock.client(&Mock.respond(&1, :file_upload))

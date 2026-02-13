@@ -97,6 +97,14 @@ defmodule Mistral do
     ]
   )
 
+  schema(:chat_classification_input,
+    messages: [
+      type: {:list, {:map, nested_schema(:chat_message)}},
+      required: true,
+      doc: "List of messages in the conversation."
+    ]
+  )
+
   schema(:function_def,
     name: [
       type: :string,
@@ -233,6 +241,44 @@ defmodule Mistral do
       type: {:or, [:string, {:list, :string}]},
       required: true,
       doc: "Text or list of texts to generate embeddings for."
+    ]
+  )
+
+  schema(:text_classification,
+    model: [type: :string, required: true, doc: "ID of the model to use."],
+    input: [
+      type: {:or, [:string, {:list, :string}]},
+      required: true,
+      doc: "Text or list of texts to classify."
+    ]
+  )
+
+  schema(:chat_classification,
+    model: [type: :string, required: true, doc: "ID of the model to use."],
+    input: [
+      type:
+        {:or,
+         [
+           {:map, nested_schema(:chat_classification_input)},
+           {:list, {:map, nested_schema(:chat_classification_input)}}
+         ]},
+      required: true,
+      doc: "A single conversation or list of conversations to classify."
+    ]
+  )
+
+  schema(:chat_moderation,
+    model: [type: :string, required: true, doc: "ID of the model to use."],
+    input: [
+      type:
+        {:or,
+         [
+           {:list, {:map, nested_schema(:chat_message)}},
+           {:list, {:list, {:map, nested_schema(:chat_message)}}}
+         ]},
+      required: true,
+      doc:
+        "A single conversation (list of messages) or multiple conversations (list of lists of messages) to moderate."
     ]
   )
 
@@ -622,6 +668,102 @@ defmodule Mistral do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:embed)) do
       client
       |> req(:post, "/embeddings", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Classify text using a Mistral moderation model.
+
+  ## Options
+
+  #{doc(:text_classification)}
+
+  ## Examples
+
+      iex> Mistral.classify(client, model: "mistral-moderation-latest", input: "Hello, world!")
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+
+      iex> Mistral.classify(client, model: "mistral-moderation-latest", input: ["First text", "Second text"])
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+  """
+  @spec classify(client(), keyword()) :: response()
+  def classify(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:text_classification)) do
+      client
+      |> req(:post, "/classifications", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Classify chat conversations using a Mistral moderation model.
+
+  ## Options
+
+  #{doc(:chat_classification)}
+
+  ## Examples
+
+      iex> Mistral.classify_chat(client,
+      ...>   model: "mistral-moderation-latest",
+      ...>   input: %{messages: [%{role: "user", content: "Hello"}]}
+      ...> )
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+  """
+  @spec classify_chat(client(), keyword()) :: response()
+  def classify_chat(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat_classification)) do
+      client
+      |> req(:post, "/chat/classifications", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Moderate text using a Mistral moderation model.
+
+  ## Options
+
+  #{doc(:text_classification)}
+
+  ## Examples
+
+      iex> Mistral.moderate(client, model: "mistral-moderation-latest", input: "Hello, world!")
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+
+      iex> Mistral.moderate(client, model: "mistral-moderation-latest", input: ["First text", "Second text"])
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+  """
+  @spec moderate(client(), keyword()) :: response()
+  def moderate(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:text_classification)) do
+      client
+      |> req(:post, "/moderations", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Moderate chat conversations using a Mistral moderation model.
+
+  ## Options
+
+  #{doc(:chat_moderation)}
+
+  ## Examples
+
+      iex> Mistral.moderate_chat(client,
+      ...>   model: "mistral-moderation-latest",
+      ...>   input: [%{role: "user", content: "Hello"}]
+      ...> )
+      {:ok, %{"id" => "...", "model" => "mistral-moderation-latest", "results" => [...]}}
+  """
+  @spec moderate_chat(client(), keyword()) :: response()
+  def moderate_chat(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat_moderation)) do
+      client
+      |> req(:post, "/chat/moderations", json: Enum.into(params, %{}))
       |> res()
     end
   end

@@ -205,6 +205,144 @@ defmodule Mistral.Mock do
         "pages_processed" => 0,
         "doc_size_bytes" => 0
       }
+    },
+    classification: %{
+      "id" => "clf-abc123",
+      "model" => "mistral-moderation-latest",
+      "results" => [
+        %{
+          "categories" => %{},
+          "category_scores" => %{
+            "sexual" => 0.01,
+            "hate_and_discrimination" => 0.02,
+            "violence_and_threats" => 0.01,
+            "dangerous_and_criminal_content" => 0.0,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        }
+      ]
+    },
+    classifications: %{
+      "id" => "clf-abc123",
+      "model" => "mistral-moderation-latest",
+      "results" => [
+        %{
+          "categories" => %{},
+          "category_scores" => %{
+            "sexual" => 0.01,
+            "hate_and_discrimination" => 0.02,
+            "violence_and_threats" => 0.01,
+            "dangerous_and_criminal_content" => 0.0,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        },
+        %{
+          "categories" => %{},
+          "category_scores" => %{
+            "sexual" => 0.05,
+            "hate_and_discrimination" => 0.03,
+            "violence_and_threats" => 0.02,
+            "dangerous_and_criminal_content" => 0.01,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        }
+      ]
+    },
+    moderation: %{
+      "id" => "mod-abc123",
+      "model" => "mistral-moderation-latest",
+      "results" => [
+        %{
+          "categories" => %{
+            "sexual" => false,
+            "hate_and_discrimination" => false,
+            "violence_and_threats" => false,
+            "dangerous_and_criminal_content" => false,
+            "selfharm" => false,
+            "health" => false,
+            "financial" => false,
+            "law" => false,
+            "pii" => false
+          },
+          "category_scores" => %{
+            "sexual" => 0.01,
+            "hate_and_discrimination" => 0.02,
+            "violence_and_threats" => 0.01,
+            "dangerous_and_criminal_content" => 0.0,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        }
+      ]
+    },
+    moderations: %{
+      "id" => "mod-abc123",
+      "model" => "mistral-moderation-latest",
+      "results" => [
+        %{
+          "categories" => %{
+            "sexual" => false,
+            "hate_and_discrimination" => false,
+            "violence_and_threats" => false,
+            "dangerous_and_criminal_content" => false,
+            "selfharm" => false,
+            "health" => false,
+            "financial" => false,
+            "law" => false,
+            "pii" => false
+          },
+          "category_scores" => %{
+            "sexual" => 0.01,
+            "hate_and_discrimination" => 0.02,
+            "violence_and_threats" => 0.01,
+            "dangerous_and_criminal_content" => 0.0,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        },
+        %{
+          "categories" => %{
+            "sexual" => false,
+            "hate_and_discrimination" => false,
+            "violence_and_threats" => false,
+            "dangerous_and_criminal_content" => false,
+            "selfharm" => false,
+            "health" => false,
+            "financial" => false,
+            "law" => false,
+            "pii" => false
+          },
+          "category_scores" => %{
+            "sexual" => 0.05,
+            "hate_and_discrimination" => 0.03,
+            "violence_and_threats" => 0.02,
+            "dangerous_and_criminal_content" => 0.01,
+            "selfharm" => 0.0,
+            "health" => 0.0,
+            "financial" => 0.0,
+            "law" => 0.0,
+            "pii" => 0.0
+          }
+        }
+      ]
     }
   }
 
@@ -385,6 +523,10 @@ defmodule Mistral.Mock do
           :embedding => any(),
           :embeddings => any(),
           :tool_use => any(),
+          :classification => any(),
+          :classifications => any(),
+          :moderation => any(),
+          :moderations => any(),
           optional(any()) => any()
         }
   def get_mocks do
