@@ -83,6 +83,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `merge/1` - Merge multiple concurrent streams into a single interleaved stream (lazy)
   - Auto-detects chunk format: chat-style (chat, FIM, agent) and conversation-style
 - **Configurable Stream Timeout**: Added `stream_timeout` option (default 30000ms) to all streaming schemas (`chat`, `fim`, `agent_completion`, `create_conversation`, `append_conversation`, `restart_conversation`)
+- **Response Caching**: Added `Mistral.Cache` module — an optional Req plugin that caches successful API responses in ETS to reduce redundant API calls
+  - Enabled via `init/2` options: `cache: true`, with optional `cache_ttl` (default 5 minutes) and `cache_table` (default `:mistral_cache`)
+  - Caches GET requests and deterministic POST endpoints (`/embeddings`, `/classifications`, `/chat/classifications`, `/moderations`, `/chat/moderations`, `/ocr`)
+  - Skips streaming requests, non-deterministic POST endpoints (`/chat/completions`, `/fim/completions`, `/agents/completions`), mutations, and error responses
+  - Lazy TTL enforcement on read with `sweep/2` for bulk expired-entry cleanup
+  - `clear/1` - Delete all cached entries
+  - `invalidate/2` - Delete entries matching a URL substring
+  - `stats/1` - Returns cache size and memory usage
+  - `sweep/2` - Remove expired entries
 
 ## [0.4.0] - 2025-07-20
 
