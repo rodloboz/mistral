@@ -201,6 +201,11 @@ defmodule Mistral do
       default: false,
       doc: "When true, returns a stream of partial response chunks."
     ],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
+    ],
     random_seed: [
       type: :non_neg_integer,
       doc: "Seed for deterministic results."
@@ -539,6 +544,11 @@ defmodule Mistral do
       default: false,
       doc: "When true, returns a stream of partial response chunks."
     ],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
+    ],
     stop: [
       type: {:or, [:string, {:list, :string}]},
       doc: "Stop generation if this token is detected."
@@ -787,6 +797,11 @@ defmodule Mistral do
     ],
     max_tokens: [type: :non_neg_integer, doc: "Maximum tokens."],
     stream: [type: {:or, [:boolean, :pid]}, default: false, doc: "Stream response."],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
+    ],
     stop: [type: {:or, [:string, {:list, :string}]}, doc: "Stop token(s)."],
     random_seed: [type: :non_neg_integer, doc: "Random seed."],
     response_format: [
@@ -814,6 +829,11 @@ defmodule Mistral do
       type: {:or, [:boolean, :pid]},
       default: false,
       doc: "When true, returns a stream of response events."
+    ],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
     ],
     store: [
       type: {:or, [:boolean, nil]},
@@ -872,6 +892,11 @@ defmodule Mistral do
       default: false,
       doc: "When true, returns a stream of response events."
     ],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
+    ],
     store: [
       type: :boolean,
       default: true,
@@ -903,6 +928,11 @@ defmodule Mistral do
       type: {:or, [:boolean, :pid]},
       default: false,
       doc: "When true, returns a stream of response events."
+    ],
+    stream_timeout: [
+      type: :non_neg_integer,
+      default: 30_000,
+      doc: "Timeout in milliseconds for receiving stream chunks. Defaults to 30000 (30 seconds)."
     ],
     store: [
       type: :boolean,
@@ -1100,6 +1130,7 @@ defmodule Mistral do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:chat)),
          :ok <- validate_response_format(params) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -1117,8 +1148,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
@@ -1168,16 +1207,16 @@ defmodule Mistral do
     end
   end
 
-  defp stream_next(%Task{pid: pid, ref: ref} = task) do
+  defp stream_next({%Task{pid: pid, ref: ref} = task, timeout}) do
     receive do
       {^pid, {:data, data}} ->
-        {[data], task}
+        {[data], {task, timeout}}
 
       {^ref, {:ok, %Req.Response{status: status}}} when status in 200..299 ->
-        {:halt, task}
+        {:halt, {task, timeout}}
 
       {^ref, {:ok, resp}} when not is_struct(resp, Req.Response) ->
-        {:halt, task}
+        {:halt, {task, timeout}}
 
       {^ref, {:ok, resp}} ->
         raise "HTTP Error: #{inspect(resp)}"
@@ -1186,13 +1225,13 @@ defmodule Mistral do
         raise error
 
       {:DOWN, _ref, _, _pid, _reason} ->
-        {:halt, task}
+        {:halt, {task, timeout}}
     after
-      30_000 -> {:halt, task}
+      timeout -> {:halt, {task, timeout}}
     end
   end
 
-  defp stream_end(%Task{ref: ref}), do: Process.demonitor(ref, [:flush])
+  defp stream_end({%Task{ref: ref}, _timeout}), do: Process.demonitor(ref, [:flush])
 
   @doc """
   Generate embeddings for the given input using a specified model.
@@ -1244,6 +1283,7 @@ defmodule Mistral do
   def fim(%__MODULE__{} = client, params) when is_list(params) do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:fim)) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -1261,8 +1301,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
@@ -1922,6 +1970,7 @@ defmodule Mistral do
   def create_conversation(%__MODULE__{} = client, params) when is_list(params) do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:create_conversation)) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -1939,8 +1988,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
@@ -2028,6 +2085,7 @@ defmodule Mistral do
       when is_binary(conversation_id) and is_list(params) do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:append_conversation)) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -2045,8 +2103,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
@@ -2117,6 +2183,7 @@ defmodule Mistral do
       when is_binary(conversation_id) and is_list(params) do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:restart_conversation)) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -2134,8 +2201,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
@@ -2455,6 +2530,7 @@ defmodule Mistral do
   def agent_completion(%__MODULE__{} = client, params) when is_list(params) do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:agent_completion)) do
       {stream_opt, params} = Keyword.pop(params, :stream, false)
+      {stream_timeout, params} = Keyword.pop(params, :stream_timeout, 30_000)
 
       if stream_opt do
         params = Keyword.put(params, :stream, true)
@@ -2472,8 +2548,16 @@ defmodule Mistral do
           end)
 
         case stream_opt do
-          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-          _ -> {:ok, task}
+          true ->
+            {:ok,
+             Stream.resource(
+               fn -> {task, stream_timeout} end,
+               &stream_next/1,
+               &stream_end/1
+             )}
+
+          _ ->
+            {:ok, task}
         end
       else
         client
