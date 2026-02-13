@@ -1055,9 +1055,9 @@ defmodule Mistral.Mock do
     Map.merge(@default_mocks, Process.get(@mocks_key, %{}))
   end
 
-  @spec client(function()) :: Mistral.client()
-  def client(plug) when is_function(plug, 1) do
-    struct(Mistral, req: Req.new(plug: plug))
+  @spec client(function(), keyword()) :: Mistral.client()
+  def client(plug, opts \\ []) when is_function(plug, 1) do
+    struct(Mistral, req: Req.new([plug: plug] ++ opts))
   end
 
   @spec respond(Plug.Conn.t(), atom() | number()) :: Plug.Conn.t()
@@ -1093,6 +1093,23 @@ defmodule Mistral.Mock do
     conn
     |> put_resp_header("content-type", content_type)
     |> send_resp(200, body)
+  end
+
+  @spec respond_after_failures(
+          Plug.Conn.t(),
+          non_neg_integer(),
+          atom() | non_neg_integer(),
+          :counters.counters_ref()
+        ) :: Plug.Conn.t()
+  def respond_after_failures(conn, failures, success_response, counter) do
+    count = :counters.get(counter, 1)
+    :counters.add(counter, 1, 1)
+
+    if count < failures do
+      respond(conn, 500)
+    else
+      respond(conn, success_response)
+    end
   end
 
   @spec stream(Plug.Conn.t(), atom()) :: Plug.Conn.t()

@@ -65,6 +65,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `rank_by_similarity/3` - Rank all embeddings by similarity with optional `top_k` limit
   - `extract_embeddings/1` - Extract raw embedding vectors from a `Mistral.embed/2` response
   - `extract_embedding/2` - Extract a single embedding vector at a given index from a response
+- **Automatic Retry with Exponential Backoff**: Added `Mistral.Retry` module and default retry configuration for transient API errors
+  - Retries on HTTP 408, 429, 5xx status codes and socket/connection errors using Req's `:transient` retry mode
+  - Exponential backoff with full jitter via `Mistral.Retry.delay/1` (base 1s, capped at 60s)
+  - Defaults to 3 max retries with `:warning` log level
+  - Streaming requests automatically disable retries since SSE streams cannot be safely replayed
+  - Fully configurable via `init/2` options: `retry`, `max_retries`, `retry_delay`, `retry_log_level`
 
 ## [0.4.0] - 2025-07-20
 
