@@ -19,6 +19,10 @@ defmodule Mistral.MixProject do
         "coveralls.html": :test,
         "coveralls.github": :test
       ],
+      dialyzer: [
+        plt_local_path: "_build/dialyzer",
+        plt_core_path: "_build/dialyzer"
+      ],
       docs: [
         main: "Mistral"
       ],
@@ -44,6 +48,7 @@ defmodule Mistral.MixProject do
       {:bandit, "~> 1.6", only: :test},
       {:castore, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.16", only: :test},
       {:ex_doc, "~> 0.36", only: :dev, runtime: false},
       {:jason, "~> 1.4"},

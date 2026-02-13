@@ -57,7 +57,7 @@ defmodule Mistral do
 
   @typedoc "Client response"
   @type response() ::
-          {:ok, map() | Enumerable.t() | Task.t()}
+          {:ok, map() | binary() | Enumerable.t() | Task.t()}
           | {:error, term()}
 
   @typedoc false
@@ -249,6 +249,33 @@ defmodule Mistral do
       type: :integer,
       default: 24,
       doc: "Number of hours before the signed URL expires. Defaults to 24 hours."
+    ]
+  )
+
+  schema(:list_files_opts,
+    page: [
+      type: :integer,
+      doc: "*(optional)* Pagination page number."
+    ],
+    page_size: [
+      type: :integer,
+      doc: "*(optional)* Number of items per page."
+    ],
+    sample_type: [
+      type: {:list, :string},
+      doc: "*(optional)* Filter by sample type."
+    ],
+    source: [
+      type: {:list, :string},
+      doc: "*(optional)* Filter by source."
+    ],
+    search: [
+      type: :string,
+      doc: "*(optional)* Search query."
+    ],
+    purpose: [
+      type: {:in, ["ocr", "fine-tune", "batch"]},
+      doc: "*(optional)* Filter by purpose. Supports 'ocr', 'fine-tune', and 'batch'."
     ]
   )
 
@@ -684,6 +711,72 @@ defmodule Mistral do
       |> req(:get, "/files/#{file_id}/url", params: opts)
       |> res()
     end
+  end
+
+  @doc """
+  Lists all uploaded files.
+
+  ## Options
+
+  #{doc(:list_files_opts)}
+
+  ## Examples
+
+      iex> Mistral.list_files(client)
+      {:ok, %{"object" => "list", "data" => [%{"id" => "file-abc123", ...}]}}
+
+      iex> Mistral.list_files(client, purpose: "ocr", page_size: 10)
+      {:ok, %{"object" => "list", "data" => [...]}}
+  """
+  @spec list_files(client(), keyword()) :: response()
+  def list_files(%__MODULE__{} = client, opts \\ []) when is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_files_opts)) do
+      client
+      |> req(:get, "/files", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Deletes a file by its ID.
+
+  ## Parameters
+
+    - `client`: A `Mistral.client()` struct.
+    - `file_id`: The ID of the file to delete.
+
+  ## Examples
+
+      iex> Mistral.delete_file(client, "file-abc123")
+      {:ok, %{"id" => "file-abc123", "object" => "file", "deleted" => true}}
+  """
+  @spec delete_file(client(), String.t()) :: response()
+  def delete_file(%__MODULE__{} = client, file_id) when is_binary(file_id) do
+    client
+    |> req(:delete, "/files/#{file_id}")
+    |> res()
+  end
+
+  @doc """
+  Downloads the content of a file by its ID.
+
+  Returns the raw binary content of the file.
+
+  ## Parameters
+
+    - `client`: A `Mistral.client()` struct.
+    - `file_id`: The ID of the file to download.
+
+  ## Examples
+
+      iex> Mistral.download_file(client, "file-abc123")
+      {:ok, <<...>>}
+  """
+  @spec download_file(client(), String.t()) :: response()
+  def download_file(%__MODULE__{} = client, file_id) when is_binary(file_id) do
+    client
+    |> req(:get, "/files/#{file_id}/content")
+    |> res()
   end
 
   defp read_file(file_path) do

@@ -144,7 +144,7 @@ defmodule MistralTest do
         end
 
       assert is_list(res)
-      assert length(res) > 0
+      assert res != []
 
       model_chunk =
         Enum.find(res, fn chunk ->
@@ -193,7 +193,7 @@ defmodule MistralTest do
 
       chunks = Mistral.StreamCatcher.get_state(pid)
       assert is_list(chunks)
-      assert length(chunks) > 0
+      assert chunks != []
 
       model_chunk =
         Enum.find(chunks, fn chunk ->
@@ -293,7 +293,7 @@ defmodule MistralTest do
           end)
         end)
 
-      assert length(tool_use_chunks) > 0
+      assert tool_use_chunks != []
 
       tool_calls =
         res
@@ -325,11 +325,9 @@ defmodule MistralTest do
 
       assert res["model"] == "mistral-embed"
       assert is_list(res["data"])
-      assert length(res["data"]) == 1
-
-      first_embedding = List.first(res["data"])
+      assert [first_embedding] = res["data"]
       assert is_list(first_embedding["embedding"])
-      assert length(first_embedding["embedding"]) > 0
+      assert first_embedding["embedding"] != []
     end
 
     test "generates embeddings for multiple inputs" do
@@ -340,11 +338,11 @@ defmodule MistralTest do
 
       assert res["model"] == "mistral-embed"
       assert is_list(res["data"])
-      assert length(res["data"]) == 2
+      assert [_, _] = res["data"]
 
       Enum.each(res["data"], fn embedding ->
         assert is_list(embedding["embedding"])
-        assert length(embedding["embedding"]) > 0
+        assert embedding["embedding"] != []
       end)
     end
   end
@@ -455,6 +453,89 @@ defmodule MistralTest do
     test "handles file not found for signed URL" do
       client = Mock.client(&Mock.respond(&1, 404))
       assert {:error, error} = Mistral.get_file_url(client, "nonexistent-file-id")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "list_files/2" do
+    test "lists files with no options" do
+      client = Mock.client(&Mock.respond(&1, :file_list))
+      assert {:ok, response} = Mistral.list_files(client)
+
+      assert response["object"] == "list"
+      assert is_list(response["data"])
+      assert length(response["data"]) == 2
+
+      file = Enum.at(response["data"], 0)
+      assert is_binary(file["id"])
+      assert file["object"] == "file"
+    end
+
+    test "lists files with filtering options" do
+      client = Mock.client(&Mock.respond(&1, :file_list))
+      assert {:ok, response} = Mistral.list_files(client, purpose: "ocr", page_size: 10)
+
+      assert response["object"] == "list"
+      assert is_list(response["data"])
+    end
+
+    test "lists files with pagination" do
+      client = Mock.client(&Mock.respond(&1, :file_list))
+      assert {:ok, response} = Mistral.list_files(client, page: 1, page_size: 5)
+
+      assert response["object"] == "list"
+      assert is_list(response["data"])
+    end
+
+    test "validates options" do
+      client = Mock.client(&Mock.respond(&1, :file_list))
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.list_files(client, purpose: "invalid")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.list_files(client, page: "not_a_number")
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+      assert {:error, error} = Mistral.list_files(client)
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "delete_file/2" do
+    test "deletes a file by ID" do
+      client = Mock.client(&Mock.respond(&1, :file_delete))
+      assert {:ok, response} = Mistral.delete_file(client, "file-abc123")
+
+      assert response["id"] == "file-abc123"
+      assert response["deleted"] == true
+    end
+
+    test "handles file not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+      assert {:error, error} = Mistral.delete_file(client, "nonexistent-file-id")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "download_file/2" do
+    test "downloads file content as binary" do
+      file_content = File.read!("test/fixtures/dummy.pdf")
+      client = Mock.client(&Mock.respond_raw(&1, file_content))
+
+      assert {:ok, body} = Mistral.download_file(client, "file-abc123")
+      assert is_binary(body)
+      assert body == file_content
+    end
+
+    test "handles file not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+      assert {:error, error} = Mistral.download_file(client, "nonexistent-file-id")
       assert error.status == 404
       assert error.type == "not_found"
     end

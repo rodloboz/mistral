@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Complete File Operations**: Added missing file management endpoints to complete the file lifecycle
+  - `list_files/2` - List uploaded files with filtering (`purpose`, `source`, `sample_type`, `search`) and pagination (`page`, `page_size`)
+  - `delete_file/2` - Delete a file by ID
+  - `download_file/2` - Download raw file content by ID
+
 ## [0.4.0] - 2025-07-20
 
 ### Added
