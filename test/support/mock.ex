@@ -206,6 +206,27 @@ defmodule Mistral.Mock do
         "doc_size_bytes" => 0
       }
     },
+    fim_completion: %{
+      "id" => "fim-e5cc70bb28c444948073e77776eb30ef",
+      "object" => "chat.completion",
+      "created" => 1_702_256_327,
+      "model" => "codestral-latest",
+      "choices" => [
+        %{
+          "index" => 0,
+          "message" => %{
+            "role" => "assistant",
+            "content" => "add(a, b):\n    return a + b"
+          },
+          "finish_reason" => "stop"
+        }
+      ],
+      "usage" => %{
+        "prompt_tokens" => 8,
+        "completion_tokens" => 12,
+        "total_tokens" => 20
+      }
+    },
     classification: %{
       "id" => "clf-abc123",
       "model" => "mistral-moderation-latest",
@@ -509,7 +530,53 @@ defmodule Mistral.Mock do
         "prompt_tokens" => 16,
         "total_tokens" => 16
       }
-    }
+    },
+    fim_completion: [
+      %{
+        "id" => "fim-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "codestral-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"role" => "assistant"},
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "fim-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "codestral-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"content" => "add(a, b):\n"},
+            "finish_reason" => nil
+          }
+        ]
+      },
+      %{
+        "id" => "fim-e5cc70bb28c444948073e77776eb30ef",
+        "object" => "chat.completion.chunk",
+        "created" => 1_702_256_327,
+        "model" => "codestral-latest",
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"content" => "    return a + b"},
+            "finish_reason" => "stop"
+          }
+        ],
+        "usage" => %{
+          "prompt_tokens" => 8,
+          "completion_tokens" => 12,
+          "total_tokens" => 20
+        }
+      }
+    ]
   }
 
   @spec add_mock(any(), any()) :: any()
@@ -523,6 +590,7 @@ defmodule Mistral.Mock do
           :embedding => any(),
           :embeddings => any(),
           :tool_use => any(),
+          :fim_completion => any(),
           :classification => any(),
           :classifications => any(),
           :moderation => any(),

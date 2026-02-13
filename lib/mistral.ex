@@ -282,6 +282,54 @@ defmodule Mistral do
     ]
   )
 
+  schema(:fim,
+    model: [
+      type: :string,
+      required: true,
+      doc: "ID of the model to use for FIM completion (e.g. `codestral-latest`)."
+    ],
+    prompt: [
+      type: :string,
+      required: true,
+      doc: "The text/code to complete."
+    ],
+    suffix: [
+      type: :string,
+      doc:
+        "*(optional)* Text/code that adds more context. When given a `prompt` and a `suffix`, the model fills what is between them."
+    ],
+    temperature: [
+      type: :float,
+      doc: "Controls randomness (0.0 to 1.5)."
+    ],
+    top_p: [
+      type: :float,
+      default: 1.0,
+      doc: "Controls diversity via nucleus sampling."
+    ],
+    max_tokens: [
+      type: :non_neg_integer,
+      doc: "Maximum number of tokens to generate."
+    ],
+    min_tokens: [
+      type: :non_neg_integer,
+      doc: "Minimum number of tokens to generate."
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "When true, returns a stream of partial response chunks."
+    ],
+    stop: [
+      type: {:or, [:string, {:list, :string}]},
+      doc: "Stop generation if this token is detected."
+    ],
+    random_seed: [
+      type: :non_neg_integer,
+      doc: "Seed for deterministic results."
+    ]
+  )
+
   schema(:upload_file_opts,
     purpose: [
       type: {:in, ["ocr", "fine-tune", "batch"]},
@@ -669,6 +717,59 @@ defmodule Mistral do
       client
       |> req(:post, "/embeddings", json: Enum.into(params, %{}))
       |> res()
+    end
+  end
+
+  @doc """
+  Fill-in-the-middle completion for code. Given a code `prompt` (and optional `suffix`),
+  the model generates the code that fits between them.
+
+  ## Options
+
+  #{doc(:fim)}
+
+  ## Examples
+
+      iex> Mistral.fim(client, model: "codestral-latest", prompt: "def add(a, b):\\n    ")
+      {:ok, %{"choices" => [%{"message" => %{"content" => "return a + b"}}], ...}}
+
+      # With suffix for fill-in-the-middle
+      iex> Mistral.fim(client, model: "codestral-latest", prompt: "def ", suffix: "return a + b")
+      {:ok, %{"choices" => [%{"message" => %{"content" => "add(a, b):\\n    "}}], ...}}
+
+      # Stream the response
+      iex> {:ok, stream} = Mistral.fim(client, model: "codestral-latest", prompt: "def ", stream: true)
+      iex> Enum.to_list(stream)
+      [%{"choices" => [%{"delta" => ...}]}, ...]
+  """
+  @spec fim(client(), keyword()) :: response()
+  def fim(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:fim)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/fim/completions",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
+          end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
+      else
+        client
+        |> req(:post, "/fim/completions", json: Enum.into(params, %{}))
+        |> res()
+      end
     end
   end
 

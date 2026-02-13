@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `classify_chat/2` - Classify chat conversations via `/chat/classifications`
   - `moderate/2` - Moderate text input via `/moderations`
   - `moderate_chat/2` - Moderate chat conversations via `/chat/moderations`
+- **FIM Completions API**: Added fill-in-the-middle code completion endpoint with streaming support
+  - `fim/2` - Code completion via `/fim/completions` with prompt, optional suffix, and full streaming support (`stream: true` or `stream: pid`)
 - **Complete File Operations**: Added missing file management endpoints to complete the file lifecycle
   - `list_files/2` - List uploaded files with filtering (`purpose`, `source`, `sample_type`, `search`) and pagination (`page`, `page_size`)
   - `delete_file/2` - Delete a file by ID
