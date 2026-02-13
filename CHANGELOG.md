@@ -55,6 +55,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `list_files/2` - List uploaded files with filtering (`purpose`, `source`, `sample_type`, `search`) and pagination (`page`, `page_size`)
   - `delete_file/2` - Delete a file by ID
   - `download_file/2` - Download raw file content by ID
+- **Embedding Utilities**: Added `Mistral.Embeddings` module with similarity calculations, distance metrics, batch processing, and API response helpers
+  - `cosine_similarity/2` - Cosine similarity between two embedding vectors (returns float in [-1, 1])
+  - `euclidean_distance/2` - Euclidean distance between two embedding vectors
+  - `batch_cosine_similarity/2` - Cosine similarity between a target and multiple embeddings, sorted by score descending
+  - `batch_euclidean_distance/2` - Euclidean distance between a target and multiple embeddings, sorted by distance ascending
+  - `most_similar/3` - Find the single most similar embedding with `:cosine` (default) or `:euclidean` metric
+  - `least_similar/3` - Find the single least similar embedding
+  - `rank_by_similarity/3` - Rank all embeddings by similarity with optional `top_k` limit
+  - `extract_embeddings/1` - Extract raw embedding vectors from a `Mistral.embed/2` response
+  - `extract_embedding/2` - Extract a single embedding vector at a given index from a response
 
 ## [0.4.0] - 2025-07-20
 
