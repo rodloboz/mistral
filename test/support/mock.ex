@@ -648,6 +648,81 @@ defmodule Mistral.Mock do
         "completion_tokens" => 12,
         "total_tokens" => 22
       }
+    },
+    conversation_response: %{
+      "object" => "conversation.response",
+      "conversation_id" => "conv_abc123",
+      "outputs" => [
+        %{
+          "type" => "message.output",
+          "id" => "entry_out_001",
+          "content" => "Hello! How can I help you today?",
+          "role" => "assistant",
+          "model" => "mistral-large-latest"
+        }
+      ],
+      "usage" => %{
+        "prompt_tokens" => 10,
+        "completion_tokens" => 12,
+        "total_tokens" => 22
+      }
+    },
+    conversation_list: [
+      %{
+        "object" => "conversation",
+        "conversation_id" => "conv_abc123",
+        "model" => "mistral-large-latest",
+        "name" => "Test Conversation",
+        "created_at" => 1_702_256_327,
+        "updated_at" => 1_702_256_327
+      },
+      %{
+        "object" => "conversation",
+        "conversation_id" => "conv_def456",
+        "agent_id" => "ag_abc123",
+        "name" => "Agent Conversation",
+        "created_at" => 1_702_256_400,
+        "updated_at" => 1_702_256_400
+      }
+    ],
+    conversation: %{
+      "object" => "conversation",
+      "conversation_id" => "conv_abc123",
+      "model" => "mistral-large-latest",
+      "name" => "Test Conversation",
+      "instructions" => "You are a helpful assistant.",
+      "tools" => [],
+      "created_at" => 1_702_256_327,
+      "updated_at" => 1_702_256_327
+    },
+    conversation_history: %{
+      "entries" => [
+        %{
+          "type" => "message.input",
+          "id" => "entry_in_001",
+          "content" => "Hello!",
+          "role" => "user"
+        },
+        %{
+          "type" => "message.output",
+          "id" => "entry_out_001",
+          "content" => "Hello! How can I help you today?",
+          "role" => "assistant",
+          "model" => "mistral-large-latest"
+        }
+      ]
+    },
+    conversation_messages: %{
+      "messages" => [
+        %{
+          "role" => "user",
+          "content" => "Hello!"
+        },
+        %{
+          "role" => "assistant",
+          "content" => "Hello! How can I help you today?"
+        }
+      ]
     }
   }
 
@@ -906,6 +981,32 @@ defmodule Mistral.Mock do
           "total_tokens" => 22
         }
       }
+    ],
+    conversation: [
+      %{
+        "object" => "conversation.response.started",
+        "conversation_id" => "conv_abc123",
+        "created_at" => 1_702_256_327
+      },
+      %{
+        "object" => "message.output.delta",
+        "conversation_id" => "conv_abc123",
+        "content" => "Hello! How can I "
+      },
+      %{
+        "object" => "message.output.delta",
+        "conversation_id" => "conv_abc123",
+        "content" => "help you today?"
+      },
+      %{
+        "object" => "conversation.response.done",
+        "conversation_id" => "conv_abc123",
+        "usage" => %{
+          "prompt_tokens" => 10,
+          "completion_tokens" => 12,
+          "total_tokens" => 22
+        }
+      }
     ]
   }
 
@@ -943,6 +1044,11 @@ defmodule Mistral.Mock do
           :agent_alias => any(),
           :agent_aliases => any(),
           :agent_completion => any(),
+          :conversation_response => any(),
+          :conversation_list => any(),
+          :conversation => any(),
+          :conversation_history => any(),
+          :conversation_messages => any(),
           optional(any()) => any()
         }
   def get_mocks do

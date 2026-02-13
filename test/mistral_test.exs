@@ -2176,4 +2176,443 @@ defmodule MistralTest do
       assert error.type == "unprocessable_entity"
     end
   end
+
+  describe "create_conversation/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :conversation_response))
+      {:ok, client: client}
+    end
+
+    test "validates parameters - empty params", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_conversation(client, [])
+    end
+
+    test "validates parameters - missing inputs", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_conversation(client, model: "mistral-large-latest")
+    end
+
+    test "creates with string input", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 model: "mistral-large-latest"
+               )
+
+      assert res["object"] == "conversation.response"
+      assert res["conversation_id"] == "conv_abc123"
+      assert is_list(res["outputs"])
+      assert is_map(res["usage"])
+    end
+
+    test "creates with entry list input", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_conversation(client,
+                 inputs: [%{type: "message.input", content: "Hello!", role: "user"}],
+                 model: "mistral-large-latest"
+               )
+
+      assert res["object"] == "conversation.response"
+      assert res["conversation_id"] == "conv_abc123"
+    end
+
+    test "creates with agent_id", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 agent_id: "ag_abc123"
+               )
+
+      assert res["object"] == "conversation.response"
+    end
+
+    test "creates with tools and completion_args", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 model: "mistral-large-latest",
+                 tools: [%{type: "web_search"}],
+                 completion_args: %{temperature: 0.7, max_tokens: 1024}
+               )
+
+      assert res["object"] == "conversation.response"
+    end
+
+    test "streams response" do
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, stream} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 model: "mistral-large-latest",
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert res != []
+
+      started_chunk =
+        Enum.find(res, fn chunk ->
+          Map.get(chunk, "object") == "conversation.response.started"
+        end)
+
+      assert started_chunk != nil
+
+      content_chunk =
+        Enum.find(res, fn chunk ->
+          Map.get(chunk, "object") == "message.output.delta"
+        end)
+
+      assert content_chunk != nil
+    end
+
+    test "streams to process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, task} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 model: "mistral-large-latest",
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert chunks != []
+
+      started_chunk =
+        Enum.find(chunks, fn chunk ->
+          Map.get(chunk, "object") == "conversation.response.started"
+        end)
+
+      assert started_chunk != nil
+
+      GenServer.stop(pid)
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.create_conversation(client,
+                 inputs: "Hello!",
+                 model: "mistral-large-latest"
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_conversations/2" do
+    test "lists with no options" do
+      client = Mock.client(&Mock.respond(&1, :conversation_list))
+      assert {:ok, res} = Mistral.list_conversations(client)
+
+      assert is_list(res)
+      assert length(res) == 2
+
+      conv = Enum.at(res, 0)
+      assert conv["object"] == "conversation"
+      assert conv["conversation_id"] == "conv_abc123"
+    end
+
+    test "lists with pagination" do
+      client = Mock.client(&Mock.respond(&1, :conversation_list))
+      assert {:ok, res} = Mistral.list_conversations(client, page: 0, page_size: 10)
+
+      assert is_list(res)
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} = Mistral.list_conversations(client)
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "get_conversation/2" do
+    test "retrieves by ID" do
+      client = Mock.client(&Mock.respond(&1, :conversation))
+      assert {:ok, res} = Mistral.get_conversation(client, "conv_abc123")
+
+      assert res["object"] == "conversation"
+      assert res["conversation_id"] == "conv_abc123"
+      assert res["model"] == "mistral-large-latest"
+    end
+
+    test "handles not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_conversation(client, "nonexistent-conv-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "delete_conversation/2" do
+    test "deletes by ID" do
+      client = Mock.client(&Mock.respond_empty/1)
+      assert {:ok, res} = Mistral.delete_conversation(client, "conv_abc123")
+
+      assert res == %{}
+    end
+
+    test "handles not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.delete_conversation(client, "nonexistent-conv-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "append_conversation/3" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :conversation_response))
+      {:ok, client: client}
+    end
+
+    test "validates parameters - missing inputs", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.append_conversation(client, "conv_abc123", [])
+    end
+
+    test "appends entries", %{client: client} do
+      assert {:ok, res} =
+               Mistral.append_conversation(client, "conv_abc123", inputs: "Follow up question")
+
+      assert res["object"] == "conversation.response"
+      assert res["conversation_id"] == "conv_abc123"
+      assert is_list(res["outputs"])
+    end
+
+    test "streams response" do
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, stream} =
+               Mistral.append_conversation(client, "conv_abc123",
+                 inputs: "Follow up",
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert res != []
+    end
+
+    test "streams to process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, task} =
+               Mistral.append_conversation(client, "conv_abc123",
+                 inputs: "Follow up",
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert chunks != []
+
+      GenServer.stop(pid)
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.append_conversation(client, "conv_abc123", inputs: "Follow up")
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "get_conversation_history/2" do
+    test "retrieves history" do
+      client = Mock.client(&Mock.respond(&1, :conversation_history))
+      assert {:ok, res} = Mistral.get_conversation_history(client, "conv_abc123")
+
+      assert is_list(res["entries"])
+      assert length(res["entries"]) == 2
+
+      input_entry = Enum.at(res["entries"], 0)
+      assert input_entry["type"] == "message.input"
+      assert input_entry["role"] == "user"
+
+      output_entry = Enum.at(res["entries"], 1)
+      assert output_entry["type"] == "message.output"
+      assert output_entry["role"] == "assistant"
+    end
+
+    test "handles not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_conversation_history(client, "nonexistent-conv-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "get_conversation_messages/2" do
+    test "retrieves messages" do
+      client = Mock.client(&Mock.respond(&1, :conversation_messages))
+      assert {:ok, res} = Mistral.get_conversation_messages(client, "conv_abc123")
+
+      assert is_list(res["messages"])
+      assert length(res["messages"]) == 2
+
+      user_msg = Enum.at(res["messages"], 0)
+      assert user_msg["role"] == "user"
+
+      assistant_msg = Enum.at(res["messages"], 1)
+      assert assistant_msg["role"] == "assistant"
+    end
+
+    test "handles not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_conversation_messages(client, "nonexistent-conv-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "restart_conversation/3" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :conversation_response))
+      {:ok, client: client}
+    end
+
+    test "validates parameters - missing inputs", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.restart_conversation(client, "conv_abc123", from_entry_id: "entry_xyz789")
+    end
+
+    test "validates parameters - missing from_entry_id", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.restart_conversation(client, "conv_abc123", inputs: "Try again")
+    end
+
+    test "restarts from entry", %{client: client} do
+      assert {:ok, res} =
+               Mistral.restart_conversation(client, "conv_abc123",
+                 inputs: "Try again",
+                 from_entry_id: "entry_xyz789"
+               )
+
+      assert res["object"] == "conversation.response"
+      assert res["conversation_id"] == "conv_abc123"
+      assert is_list(res["outputs"])
+    end
+
+    test "streams response" do
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, stream} =
+               Mistral.restart_conversation(client, "conv_abc123",
+                 inputs: "Try again",
+                 from_entry_id: "entry_xyz789",
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert res != []
+    end
+
+    test "streams to process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :conversation))
+
+      assert {:ok, task} =
+               Mistral.restart_conversation(client, "conv_abc123",
+                 inputs: "Try again",
+                 from_entry_id: "entry_xyz789",
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert chunks != []
+
+      GenServer.stop(pid)
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.restart_conversation(client, "conv_abc123",
+                 inputs: "Try again",
+                 from_entry_id: "entry_xyz789"
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
 end

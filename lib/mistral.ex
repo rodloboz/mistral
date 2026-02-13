@@ -800,6 +800,127 @@ defmodule Mistral do
     metadata: [type: @permissive_map, doc: "Custom metadata."]
   )
 
+  schema(:create_conversation,
+    inputs: [
+      type: {:or, [:string, {:list, @permissive_map}]},
+      required: true,
+      doc: "The input string or list of entry objects."
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "When true, returns a stream of response events."
+    ],
+    store: [
+      type: {:or, [:boolean, nil]},
+      doc: "*(optional)* Whether to store the conversation."
+    ],
+    handoff_execution: [
+      type: {:or, [{:in, ["client", "server"]}, nil]},
+      doc: "*(optional)* Handoff execution mode ('client' or 'server')."
+    ],
+    instructions: [
+      type: {:or, [:string, nil]},
+      doc: "*(optional)* System instructions for the conversation."
+    ],
+    tools: [
+      type: {:list, @permissive_map},
+      doc: "*(optional)* Available tools (function, web_search, code_interpreter, etc.)."
+    ],
+    completion_args: [
+      type: {:or, [{:map, nested_schema(:completion_args)}, nil]},
+      doc: "*(optional)* Completion arguments."
+    ],
+    name: [
+      type: {:or, [:string, nil]},
+      doc: "*(optional)* Name of the conversation."
+    ],
+    description: [
+      type: {:or, [:string, nil]},
+      doc: "*(optional)* Description of the conversation."
+    ],
+    metadata: [
+      type: {:or, [@permissive_map, nil]},
+      doc: "*(optional)* Custom metadata."
+    ],
+    agent_id: [
+      type: {:or, [:string, nil]},
+      doc: "*(optional)* Agent ID to use."
+    ],
+    agent_version: [
+      type: {:or, [:string, :integer, nil]},
+      doc: "*(optional)* Agent version."
+    ],
+    model: [
+      type: {:or, [:string, nil]},
+      doc: "*(optional)* Model ID to use."
+    ]
+  )
+
+  schema(:append_conversation,
+    inputs: [
+      type: {:or, [:string, {:list, @permissive_map}]},
+      required: true,
+      doc: "The input string or list of entry objects."
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "When true, returns a stream of response events."
+    ],
+    store: [
+      type: :boolean,
+      default: true,
+      doc: "Whether to store the entries."
+    ],
+    handoff_execution: [
+      type: {:in, ["client", "server"]},
+      default: "server",
+      doc: "Handoff execution mode."
+    ],
+    completion_args: [
+      type: {:or, [{:map, nested_schema(:completion_args)}, nil]},
+      doc: "*(optional)* Completion arguments."
+    ]
+  )
+
+  schema(:restart_conversation,
+    inputs: [
+      type: {:or, [:string, {:list, @permissive_map}]},
+      required: true,
+      doc: "The input string or list of entry objects."
+    ],
+    from_entry_id: [
+      type: :string,
+      required: true,
+      doc: "The entry ID to restart from."
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "When true, returns a stream of response events."
+    ],
+    store: [
+      type: :boolean,
+      default: true,
+      doc: "Whether to store the entries."
+    ],
+    handoff_execution: [
+      type: {:in, ["client", "server"]},
+      default: "server",
+      doc: "Handoff execution mode."
+    ],
+    completion_args: [
+      type: {:or, [{:map, nested_schema(:completion_args)}, nil]},
+      doc: "*(optional)* Completion arguments."
+    ]
+  )
+
+  schema(:list_conversations_opts,
+    page: [type: :integer, doc: "*(optional)* Page number."],
+    page_size: [type: :integer, doc: "*(optional)* Items per page."]
+  )
+
   @doc """
   Creates a new Mistral API client using the API key set in your application's config.
 
@@ -1746,6 +1867,247 @@ defmodule Mistral do
       client
       |> req(:post, "/ocr", json: Enum.into(params, %{}))
       |> res()
+    end
+  end
+
+  @doc """
+  Create a new conversation.
+
+  ## Options
+
+  #{doc(:create_conversation)}
+
+  ## Examples
+
+      iex> Mistral.create_conversation(client, inputs: "Hello!")
+      {:ok, %{"object" => "conversation.response", "conversation_id" => "conv_abc123", ...}}
+
+      # Stream the response
+      iex> {:ok, stream} = Mistral.create_conversation(client, inputs: "Hello!", stream: true)
+      iex> Enum.to_list(stream)
+      [%{"object" => "conversation.response.started", ...}, ...]
+  """
+  @spec create_conversation(client(), keyword()) :: response()
+  def create_conversation(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:create_conversation)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/conversations",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
+          end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
+      else
+        client
+        |> req(:post, "/conversations", json: Enum.into(params, %{}))
+        |> res()
+      end
+    end
+  end
+
+  @doc """
+  List conversations with optional pagination.
+
+  ## Options
+
+  #{doc(:list_conversations_opts)}
+
+  ## Examples
+
+      iex> Mistral.list_conversations(client)
+      {:ok, [%{"object" => "conversation", ...}]}
+
+      iex> Mistral.list_conversations(client, page: 0, page_size: 10)
+      {:ok, [%{"object" => "conversation", ...}]}
+  """
+  @spec list_conversations(client(), keyword()) :: response()
+  def list_conversations(%__MODULE__{} = client, opts \\ []) when is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_conversations_opts)) do
+      client
+      |> req(:get, "/conversations", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Retrieve a conversation by its ID.
+
+  ## Examples
+
+      iex> Mistral.get_conversation(client, "conv_abc123")
+      {:ok, %{"object" => "conversation", "conversation_id" => "conv_abc123", ...}}
+  """
+  @spec get_conversation(client(), String.t()) :: response()
+  def get_conversation(%__MODULE__{} = client, conversation_id)
+      when is_binary(conversation_id) do
+    client
+    |> req(:get, "/conversations/#{conversation_id}")
+    |> res()
+  end
+
+  @doc """
+  Delete a conversation by its ID.
+
+  ## Examples
+
+      iex> Mistral.delete_conversation(client, "conv_abc123")
+      {:ok, %{}}
+  """
+  @spec delete_conversation(client(), String.t()) :: response()
+  def delete_conversation(%__MODULE__{} = client, conversation_id)
+      when is_binary(conversation_id) do
+    client
+    |> req(:delete, "/conversations/#{conversation_id}")
+    |> res()
+  end
+
+  @doc """
+  Append entries to an existing conversation.
+
+  ## Options
+
+  #{doc(:append_conversation)}
+
+  ## Examples
+
+      iex> Mistral.append_conversation(client, "conv_abc123", inputs: "Follow up question")
+      {:ok, %{"object" => "conversation.response", ...}}
+
+      # Stream the response
+      iex> {:ok, stream} = Mistral.append_conversation(client, "conv_abc123", inputs: "Follow up", stream: true)
+      iex> Enum.to_list(stream)
+      [%{"object" => "conversation.response.started", ...}, ...]
+  """
+  @spec append_conversation(client(), String.t(), keyword()) :: response()
+  def append_conversation(%__MODULE__{} = client, conversation_id, params)
+      when is_binary(conversation_id) and is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:append_conversation)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/conversations/#{conversation_id}",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
+          end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
+      else
+        client
+        |> req(:post, "/conversations/#{conversation_id}", json: Enum.into(params, %{}))
+        |> res()
+      end
+    end
+  end
+
+  @doc """
+  Get the history of a conversation.
+
+  ## Examples
+
+      iex> Mistral.get_conversation_history(client, "conv_abc123")
+      {:ok, %{"entries" => [...]}}
+  """
+  @spec get_conversation_history(client(), String.t()) :: response()
+  def get_conversation_history(%__MODULE__{} = client, conversation_id)
+      when is_binary(conversation_id) do
+    client
+    |> req(:get, "/conversations/#{conversation_id}/history")
+    |> res()
+  end
+
+  @doc """
+  Get the messages of a conversation.
+
+  ## Examples
+
+      iex> Mistral.get_conversation_messages(client, "conv_abc123")
+      {:ok, %{"messages" => [...]}}
+  """
+  @spec get_conversation_messages(client(), String.t()) :: response()
+  def get_conversation_messages(%__MODULE__{} = client, conversation_id)
+      when is_binary(conversation_id) do
+    client
+    |> req(:get, "/conversations/#{conversation_id}/messages")
+    |> res()
+  end
+
+  @doc """
+  Restart a conversation from a specific entry.
+
+  ## Options
+
+  #{doc(:restart_conversation)}
+
+  ## Examples
+
+      iex> Mistral.restart_conversation(client, "conv_abc123",
+      ...>   inputs: "Try again",
+      ...>   from_entry_id: "entry_xyz789"
+      ...> )
+      {:ok, %{"object" => "conversation.response", ...}}
+
+      # Stream the response
+      iex> {:ok, stream} = Mistral.restart_conversation(client, "conv_abc123",
+      ...>   inputs: "Try again",
+      ...>   from_entry_id: "entry_xyz789",
+      ...>   stream: true
+      ...> )
+      iex> Enum.to_list(stream)
+      [%{"object" => "conversation.response.started", ...}, ...]
+  """
+  @spec restart_conversation(client(), String.t(), keyword()) :: response()
+  def restart_conversation(%__MODULE__{} = client, conversation_id, params)
+      when is_binary(conversation_id) and is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:restart_conversation)) do
+      {stream_opt, params} = Keyword.pop(params, :stream, false)
+
+      if stream_opt do
+        params = Keyword.put(params, :stream, true)
+        dest = if is_pid(stream_opt), do: stream_opt, else: self()
+
+        task =
+          Task.async(fn ->
+            client
+            |> req(:post, "/conversations/#{conversation_id}/restart",
+              json: Enum.into(params, %{}),
+              into: stream_handler(dest)
+            )
+            |> res()
+          end)
+
+        case stream_opt do
+          true -> {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
+          _ -> {:ok, task}
+        end
+      else
+        client
+        |> req(:post, "/conversations/#{conversation_id}/restart", json: Enum.into(params, %{}))
+        |> res()
+      end
     end
   end
 
