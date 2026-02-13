@@ -358,6 +358,145 @@ defmodule Mistral do
     inline: [type: :boolean, doc: "*(optional)* If true, return results inline in the response."]
   )
 
+  schema(:training_file,
+    file_id: [type: :string, required: true, doc: "The ID (UUID) of an uploaded training file."],
+    weight: [type: :float, default: 1.0, doc: "*(optional)* Weight of the training file."]
+  )
+
+  schema(:wandb_integration,
+    type: [type: {:in, ["wandb"]}, default: "wandb", doc: "Integration type."],
+    project: [type: :string, required: true, doc: "The W&B project name."],
+    name: [type: :string, doc: "*(optional)* Display name for the run."],
+    api_key: [type: :string, required: true, doc: "The W&B API key (40 characters)."],
+    run_name: [type: :string, doc: "*(optional)* The W&B run name."]
+  )
+
+  schema(:github_repository,
+    type: [type: {:in, ["github"]}, default: "github", doc: "Repository type."],
+    name: [type: :string, required: true, doc: "The repository name."],
+    owner: [type: :string, required: true, doc: "The repository owner."],
+    ref: [type: :string, doc: "*(optional)* Git ref (branch, tag, or commit)."],
+    weight: [type: :float, default: 1.0, doc: "*(optional)* Weight of this repository."],
+    token: [type: :string, required: true, doc: "GitHub access token."]
+  )
+
+  schema(:classifier_target,
+    name: [type: :string, required: true, doc: "Target name."],
+    labels: [type: {:list, :string}, required: true, doc: "List of labels."],
+    weight: [type: :float, default: 1.0, doc: "*(optional)* Target weight."],
+    loss_function: [
+      type: {:in, ["single_class", "multi_class"]},
+      doc: "*(optional)* Loss function."
+    ]
+  )
+
+  schema(:create_fine_tuning_job,
+    model: [
+      type:
+        {:in,
+         [
+           "open-mistral-7b",
+           "mistral-small-latest",
+           "codestral-latest",
+           "mistral-large-latest",
+           "open-mistral-nemo",
+           "codestral-mamba-latest"
+         ]},
+      required: true,
+      doc: "The model to fine-tune."
+    ],
+    training_files: [
+      type: {:list, {:map, nested_schema(:training_file)}},
+      doc: "*(optional)* List of training file objects."
+    ],
+    validation_files: [
+      type: {:list, :string},
+      doc: "*(optional)* List of validation file IDs (UUIDs)."
+    ],
+    suffix: [
+      type: :string,
+      doc: "*(optional)* A suffix to append to the fine-tuned model name."
+    ],
+    integrations: [
+      type: {:list, {:map, nested_schema(:wandb_integration)}},
+      doc: "*(optional)* List of W&B integrations."
+    ],
+    auto_start: [
+      type: :boolean,
+      doc: "*(optional)* Whether to start the job automatically after validation."
+    ],
+    hyperparameters: [
+      type: @permissive_map,
+      required: true,
+      doc: "Hyperparameters for fine-tuning (e.g. training_steps, learning_rate, etc.)."
+    ],
+    repositories: [
+      type: {:list, {:map, nested_schema(:github_repository)}},
+      doc: "*(optional)* List of GitHub repositories to use as training data."
+    ],
+    classifier_targets: [
+      type: {:list, {:map, nested_schema(:classifier_target)}},
+      doc: "*(optional)* List of classifier targets (for classifier job type)."
+    ],
+    job_type: [
+      type: {:in, ["completion", "classifier"]},
+      doc: "*(optional)* The type of fine-tuning job."
+    ],
+    invalid_sample_skip_percentage: [
+      type: :float,
+      default: 0.0,
+      doc: "*(optional)* Percentage of invalid samples to skip during training."
+    ],
+    dry_run: [
+      type: :boolean,
+      doc: "*(optional)* If true, returns estimated cost and duration without creating the job."
+    ]
+  )
+
+  schema(:list_fine_tuning_jobs,
+    page: [type: :integer, doc: "*(optional)* Page number (0-indexed)."],
+    page_size: [type: :integer, doc: "*(optional)* Number of items per page."],
+    model: [type: :string, doc: "*(optional)* Filter by model."],
+    created_after: [
+      type: :string,
+      doc: "*(optional)* Filter jobs created after this datetime (ISO 8601)."
+    ],
+    created_before: [
+      type: :string,
+      doc: "*(optional)* Filter jobs created before this datetime (ISO 8601)."
+    ],
+    wandb_project: [type: :string, doc: "*(optional)* Filter by W&B project name."],
+    wandb_name: [type: :string, doc: "*(optional)* Filter by W&B run name."],
+    suffix: [type: :string, doc: "*(optional)* Filter by model suffix."],
+    created_by_me: [
+      type: :boolean,
+      default: false,
+      doc: "*(optional)* Only return jobs created by the current user."
+    ],
+    status: [
+      type:
+        {:in,
+         [
+           "QUEUED",
+           "STARTED",
+           "VALIDATING",
+           "VALIDATED",
+           "RUNNING",
+           "FAILED_VALIDATION",
+           "FAILED",
+           "SUCCESS",
+           "CANCELLED",
+           "CANCELLATION_REQUESTED"
+         ]},
+      doc: "*(optional)* Filter by job status."
+    ]
+  )
+
+  schema(:update_fine_tuned_model,
+    name: [type: :string, doc: "*(optional)* New name for the fine-tuned model."],
+    description: [type: :string, doc: "*(optional)* New description for the fine-tuned model."]
+  )
+
   schema(:fim,
     model: [
       type: :string,
@@ -1051,6 +1190,175 @@ defmodule Mistral do
   end
 
   @doc """
+  Create a fine-tuning job.
+
+  ## Options
+
+  #{doc(:create_fine_tuning_job)}
+
+  ## Training file structure
+
+  #{doc(:training_file)}
+
+  ## W&B integration structure
+
+  #{doc(:wandb_integration)}
+
+  ## Examples
+
+      iex> Mistral.create_fine_tuning_job(client,
+      ...>   model: "open-mistral-7b",
+      ...>   hyperparameters: %{training_steps: 10},
+      ...>   training_files: [%{file_id: "file-abc123"}]
+      ...> )
+      {:ok, %{"id" => "ft-abc123", "status" => "QUEUED", ...}}
+
+      iex> Mistral.create_fine_tuning_job(client,
+      ...>   model: "open-mistral-7b",
+      ...>   hyperparameters: %{training_steps: 10},
+      ...>   dry_run: true
+      ...> )
+      {:ok, %{"expected_duration_seconds" => 300, ...}}
+  """
+  @spec create_fine_tuning_job(client(), keyword()) :: response()
+  def create_fine_tuning_job(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:create_fine_tuning_job)) do
+      {dry_run, params} = Keyword.pop(params, :dry_run)
+
+      client
+      |> req(:post, "/fine_tuning/jobs",
+        json: Enum.into(params, %{}),
+        params: if(dry_run != nil, do: [dry_run: dry_run], else: [])
+      )
+      |> res()
+    end
+  end
+
+  @doc """
+  List fine-tuning jobs with optional filtering and pagination.
+
+  ## Options
+
+  #{doc(:list_fine_tuning_jobs)}
+
+  ## Examples
+
+      iex> Mistral.list_fine_tuning_jobs(client)
+      {:ok, %{"object" => "list", "data" => [...], "total" => 2}}
+
+      iex> Mistral.list_fine_tuning_jobs(client, status: "RUNNING", model: "open-mistral-7b")
+      {:ok, %{"object" => "list", "data" => [...], "total" => 1}}
+  """
+  @spec list_fine_tuning_jobs(client(), keyword()) :: response()
+  def list_fine_tuning_jobs(%__MODULE__{} = client, opts \\ []) when is_list(opts) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, schema(:list_fine_tuning_jobs)) do
+      client
+      |> req(:get, "/fine_tuning/jobs", params: opts)
+      |> res()
+    end
+  end
+
+  @doc """
+  Retrieve a fine-tuning job by its ID.
+
+  ## Examples
+
+      iex> Mistral.get_fine_tuning_job(client, "ft-abc123")
+      {:ok, %{"id" => "ft-abc123", "status" => "QUEUED", ...}}
+  """
+  @spec get_fine_tuning_job(client(), String.t()) :: response()
+  def get_fine_tuning_job(%__MODULE__{} = client, job_id) when is_binary(job_id) do
+    client
+    |> req(:get, "/fine_tuning/jobs/#{job_id}")
+    |> res()
+  end
+
+  @doc """
+  Cancel a fine-tuning job by its ID.
+
+  ## Examples
+
+      iex> Mistral.cancel_fine_tuning_job(client, "ft-abc123")
+      {:ok, %{"id" => "ft-abc123", "status" => "CANCELLATION_REQUESTED", ...}}
+  """
+  @spec cancel_fine_tuning_job(client(), String.t()) :: response()
+  def cancel_fine_tuning_job(%__MODULE__{} = client, job_id) when is_binary(job_id) do
+    client
+    |> req(:post, "/fine_tuning/jobs/#{job_id}/cancel", json: %{})
+    |> res()
+  end
+
+  @doc """
+  Start a fine-tuning job by its ID.
+
+  ## Examples
+
+      iex> Mistral.start_fine_tuning_job(client, "ft-abc123")
+      {:ok, %{"id" => "ft-abc123", "status" => "STARTED", ...}}
+  """
+  @spec start_fine_tuning_job(client(), String.t()) :: response()
+  def start_fine_tuning_job(%__MODULE__{} = client, job_id) when is_binary(job_id) do
+    client
+    |> req(:post, "/fine_tuning/jobs/#{job_id}/start", json: %{})
+    |> res()
+  end
+
+  @doc """
+  Update a fine-tuned model's name and/or description.
+
+  ## Options
+
+  #{doc(:update_fine_tuned_model)}
+
+  ## Examples
+
+      iex> Mistral.update_fine_tuned_model(client, "ft:open-mistral-7b:abc123",
+      ...>   name: "My Model",
+      ...>   description: "A fine-tuned model"
+      ...> )
+      {:ok, %{"id" => "ft:open-mistral-7b:abc123", ...}}
+  """
+  @spec update_fine_tuned_model(client(), String.t(), keyword()) :: response()
+  def update_fine_tuned_model(%__MODULE__{} = client, model_id, params \\ [])
+      when is_binary(model_id) and is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:update_fine_tuned_model)) do
+      client
+      |> req(:patch, "/fine_tuning/models/#{model_id}", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+  @doc """
+  Archive a fine-tuned model.
+
+  ## Examples
+
+      iex> Mistral.archive_fine_tuned_model(client, "ft:open-mistral-7b:abc123")
+      {:ok, %{"id" => "ft:open-mistral-7b:abc123", "archived" => true, ...}}
+  """
+  @spec archive_fine_tuned_model(client(), String.t()) :: response()
+  def archive_fine_tuned_model(%__MODULE__{} = client, model_id) when is_binary(model_id) do
+    client
+    |> req(:post, "/fine_tuning/models/#{model_id}/archive", json: %{})
+    |> res()
+  end
+
+  @doc """
+  Unarchive a fine-tuned model.
+
+  ## Examples
+
+      iex> Mistral.unarchive_fine_tuned_model(client, "ft:open-mistral-7b:abc123")
+      {:ok, %{"id" => "ft:open-mistral-7b:abc123", "archived" => false, ...}}
+  """
+  @spec unarchive_fine_tuned_model(client(), String.t()) :: response()
+  def unarchive_fine_tuned_model(%__MODULE__{} = client, model_id) when is_binary(model_id) do
+    client
+    |> req(:delete, "/fine_tuning/models/#{model_id}/archive")
+    |> res()
+  end
+
+  @doc """
   Uploads a file to the Mistral API.
 
   ## Options
@@ -1366,6 +1674,21 @@ defmodule Mistral do
   def get_model(%__MODULE__{} = client, model_id) when is_binary(model_id) do
     client
     |> req(:get, "/models/#{model_id}")
+    |> res()
+  end
+
+  @doc """
+  Delete a model by its ID.
+
+  ## Examples
+
+      iex> Mistral.delete_model(client, "ft:open-mistral-7b:abc123")
+      {:ok, %{"id" => "ft:open-mistral-7b:abc123", "deleted" => true, ...}}
+  """
+  @spec delete_model(client(), String.t()) :: response()
+  def delete_model(%__MODULE__{} = client, model_id) when is_binary(model_id) do
+    client
+    |> req(:delete, "/models/#{model_id}")
     |> res()
   end
 

@@ -294,6 +294,136 @@ defmodule Mistral.Mock do
       "succeeded_requests" => 0,
       "failed_requests" => 0
     },
+    fine_tuning_job: %{
+      "id" => "ft-abc123",
+      "object" => "fine_tuning.job",
+      "model" => "open-mistral-7b",
+      "status" => "QUEUED",
+      "job_type" => "completion",
+      "created_at" => 1_702_256_327,
+      "modified_at" => 1_702_256_327,
+      "training_files" => ["file-abc123"],
+      "hyperparameters" => %{
+        "training_steps" => 10,
+        "learning_rate" => 0.0001
+      },
+      "fine_tuned_model" => nil,
+      "integrations" => []
+    },
+    fine_tuning_jobs: %{
+      "object" => "list",
+      "data" => [
+        %{
+          "id" => "ft-abc123",
+          "object" => "fine_tuning.job",
+          "model" => "open-mistral-7b",
+          "status" => "QUEUED",
+          "job_type" => "completion",
+          "created_at" => 1_702_256_327,
+          "modified_at" => 1_702_256_327,
+          "training_files" => ["file-abc123"],
+          "hyperparameters" => %{"training_steps" => 10},
+          "fine_tuned_model" => nil
+        },
+        %{
+          "id" => "ft-def456",
+          "object" => "fine_tuning.job",
+          "model" => "open-mistral-7b",
+          "status" => "SUCCESS",
+          "job_type" => "completion",
+          "created_at" => 1_702_256_400,
+          "modified_at" => 1_702_256_500,
+          "training_files" => ["file-def456"],
+          "hyperparameters" => %{"training_steps" => 100},
+          "fine_tuned_model" => "ft:open-mistral-7b:my-model:abc123"
+        }
+      ],
+      "total" => 2
+    },
+    fine_tuning_job_detailed: %{
+      "id" => "ft-abc123",
+      "object" => "fine_tuning.job",
+      "model" => "open-mistral-7b",
+      "status" => "RUNNING",
+      "job_type" => "completion",
+      "created_at" => 1_702_256_327,
+      "modified_at" => 1_702_256_500,
+      "training_files" => ["file-abc123"],
+      "hyperparameters" => %{
+        "training_steps" => 100,
+        "learning_rate" => 0.0001
+      },
+      "fine_tuned_model" => nil,
+      "integrations" => [],
+      "events" => [
+        %{"name" => "status-updated", "created_at" => 1_702_256_400, "data" => "RUNNING"}
+      ],
+      "checkpoints" => [
+        %{"step_number" => 50, "metrics" => %{"train_loss" => 0.5}}
+      ],
+      "metadata" => %{"expected_duration_seconds" => 600}
+    },
+    fine_tuning_job_cancelled: %{
+      "id" => "ft-abc123",
+      "object" => "fine_tuning.job",
+      "model" => "open-mistral-7b",
+      "status" => "CANCELLATION_REQUESTED",
+      "job_type" => "completion",
+      "created_at" => 1_702_256_327,
+      "modified_at" => 1_702_256_500,
+      "training_files" => ["file-abc123"],
+      "hyperparameters" => %{"training_steps" => 10},
+      "fine_tuned_model" => nil
+    },
+    fine_tuning_job_started: %{
+      "id" => "ft-abc123",
+      "object" => "fine_tuning.job",
+      "model" => "open-mistral-7b",
+      "status" => "STARTED",
+      "job_type" => "completion",
+      "created_at" => 1_702_256_327,
+      "modified_at" => 1_702_256_500,
+      "training_files" => ["file-abc123"],
+      "hyperparameters" => %{"training_steps" => 10},
+      "fine_tuned_model" => nil
+    },
+    fine_tuning_job_dry_run: %{
+      "expected_duration_seconds" => 300,
+      "data_tokens" => 50_000,
+      "training_tokens" => 100_000,
+      "estimated_start_time" => 1_702_260_000,
+      "cost" => 1.5,
+      "cost_currency" => "EUR"
+    },
+    ft_model_updated: %{
+      "id" => "ft:open-mistral-7b:my-model:abc123",
+      "object" => "model",
+      "created" => 1_702_256_327,
+      "owned_by" => "user-abc123",
+      "name" => "Updated Model Name",
+      "description" => "Updated description",
+      "capabilities" => %{
+        "completion_chat" => true,
+        "fine_tuning" => false
+      },
+      "max_context_length" => 32_768,
+      "aliases" => []
+    },
+    ft_model_archived: %{
+      "id" => "ft:open-mistral-7b:my-model:abc123",
+      "object" => "model",
+      "archived" => true
+    },
+    ft_model_unarchived: %{
+      "id" => "ft:open-mistral-7b:my-model:abc123",
+      "object" => "model",
+      "archived" => false
+    },
+    model_deleted: %{
+      "id" => "ft:open-mistral-7b:my-model:abc123",
+      "object" => "model",
+      "deleted" => true
+    },
     classification: %{
       "id" => "clf-abc123",
       "model" => "mistral-moderation-latest",
@@ -661,6 +791,16 @@ defmodule Mistral.Mock do
           :batch_job => any(),
           :batch_jobs => any(),
           :batch_job_cancelled => any(),
+          :fine_tuning_job => any(),
+          :fine_tuning_jobs => any(),
+          :fine_tuning_job_detailed => any(),
+          :fine_tuning_job_cancelled => any(),
+          :fine_tuning_job_started => any(),
+          :fine_tuning_job_dry_run => any(),
+          :ft_model_updated => any(),
+          :ft_model_archived => any(),
+          :ft_model_unarchived => any(),
+          :model_deleted => any(),
           :classification => any(),
           :classifications => any(),
           :moderation => any(),

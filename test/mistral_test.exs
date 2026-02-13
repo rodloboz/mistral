@@ -907,6 +907,291 @@ defmodule MistralTest do
     end
   end
 
+  describe "create_fine_tuning_job/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_job))
+      {:ok, client: client}
+    end
+
+    test "validates missing model", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_fine_tuning_job(client,
+                 hyperparameters: %{training_steps: 10}
+               )
+    end
+
+    test "validates missing hyperparameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "open-mistral-7b"
+               )
+    end
+
+    test "validates invalid model", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "invalid-model",
+                 hyperparameters: %{training_steps: 10}
+               )
+    end
+
+    test "creates with training files", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "open-mistral-7b",
+                 hyperparameters: %{training_steps: 10},
+                 training_files: [%{file_id: "file-abc123"}]
+               )
+
+      assert res["id"] == "ft-abc123"
+      assert res["object"] == "fine_tuning.job"
+      assert res["status"] == "QUEUED"
+      assert res["model"] == "open-mistral-7b"
+    end
+
+    test "creates with dry_run" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_job_dry_run))
+
+      assert {:ok, res} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "open-mistral-7b",
+                 hyperparameters: %{training_steps: 10},
+                 dry_run: true
+               )
+
+      assert res["expected_duration_seconds"] == 300
+      assert res["data_tokens"] == 50_000
+    end
+
+    test "creates with integrations", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "open-mistral-7b",
+                 hyperparameters: %{training_steps: 10},
+                 integrations: [
+                   %{
+                     type: "wandb",
+                     project: "my-project",
+                     api_key: String.duplicate("a", 40)
+                   }
+                 ]
+               )
+
+      assert res["id"] == "ft-abc123"
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.create_fine_tuning_job(client,
+                 model: "open-mistral-7b",
+                 hyperparameters: %{training_steps: 10}
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_fine_tuning_jobs/2" do
+    test "lists with no options" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_jobs))
+      assert {:ok, res} = Mistral.list_fine_tuning_jobs(client)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+      assert res["total"] == 2
+
+      job = Enum.at(res["data"], 0)
+      assert job["id"] == "ft-abc123"
+      assert job["object"] == "fine_tuning.job"
+    end
+
+    test "lists with filters" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_jobs))
+
+      assert {:ok, res} =
+               Mistral.list_fine_tuning_jobs(client,
+                 model: "open-mistral-7b",
+                 status: "RUNNING"
+               )
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "lists with pagination" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_jobs))
+      assert {:ok, res} = Mistral.list_fine_tuning_jobs(client, page: 0, page_size: 10)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} = Mistral.list_fine_tuning_jobs(client)
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "get_fine_tuning_job/2" do
+    test "retrieves a fine-tuning job by ID" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_job_detailed))
+      assert {:ok, res} = Mistral.get_fine_tuning_job(client, "ft-abc123")
+
+      assert res["id"] == "ft-abc123"
+      assert res["object"] == "fine_tuning.job"
+      assert res["status"] == "RUNNING"
+      assert is_list(res["events"])
+      assert is_list(res["checkpoints"])
+    end
+
+    test "handles job not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_fine_tuning_job(client, "nonexistent-job-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "cancel_fine_tuning_job/2" do
+    test "cancels a fine-tuning job" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_job_cancelled))
+      assert {:ok, res} = Mistral.cancel_fine_tuning_job(client, "ft-abc123")
+
+      assert res["id"] == "ft-abc123"
+      assert res["status"] == "CANCELLATION_REQUESTED"
+    end
+
+    test "handles job not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.cancel_fine_tuning_job(client, "nonexistent-job-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "start_fine_tuning_job/2" do
+    test "starts a fine-tuning job" do
+      client = Mock.client(&Mock.respond(&1, :fine_tuning_job_started))
+      assert {:ok, res} = Mistral.start_fine_tuning_job(client, "ft-abc123")
+
+      assert res["id"] == "ft-abc123"
+      assert res["status"] == "STARTED"
+    end
+
+    test "handles job not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.start_fine_tuning_job(client, "nonexistent-job-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "update_fine_tuned_model/3" do
+    test "updates name and description" do
+      client = Mock.client(&Mock.respond(&1, :ft_model_updated))
+
+      assert {:ok, res} =
+               Mistral.update_fine_tuned_model(
+                 client,
+                 "ft:open-mistral-7b:my-model:abc123",
+                 name: "Updated Model Name",
+                 description: "Updated description"
+               )
+
+      assert res["id"] == "ft:open-mistral-7b:my-model:abc123"
+      assert res["name"] == "Updated Model Name"
+      assert res["description"] == "Updated description"
+    end
+
+    test "updates only name" do
+      client = Mock.client(&Mock.respond(&1, :ft_model_updated))
+
+      assert {:ok, res} =
+               Mistral.update_fine_tuned_model(
+                 client,
+                 "ft:open-mistral-7b:my-model:abc123",
+                 name: "Updated Model Name"
+               )
+
+      assert res["id"] == "ft:open-mistral-7b:my-model:abc123"
+    end
+
+    test "handles model not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.update_fine_tuned_model(
+                 client,
+                 "nonexistent-model-id",
+                 name: "New Name"
+               )
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "archive_fine_tuned_model/2" do
+    test "archives a fine-tuned model" do
+      client = Mock.client(&Mock.respond(&1, :ft_model_archived))
+
+      assert {:ok, res} =
+               Mistral.archive_fine_tuned_model(client, "ft:open-mistral-7b:my-model:abc123")
+
+      assert res["id"] == "ft:open-mistral-7b:my-model:abc123"
+      assert res["archived"] == true
+    end
+
+    test "handles model not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.archive_fine_tuned_model(client, "nonexistent-model-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "unarchive_fine_tuned_model/2" do
+    test "unarchives a fine-tuned model" do
+      client = Mock.client(&Mock.respond(&1, :ft_model_unarchived))
+
+      assert {:ok, res} =
+               Mistral.unarchive_fine_tuned_model(client, "ft:open-mistral-7b:my-model:abc123")
+
+      assert res["id"] == "ft:open-mistral-7b:my-model:abc123"
+      assert res["archived"] == false
+    end
+
+    test "handles model not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.unarchive_fine_tuned_model(client, "nonexistent-model-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
   describe "upload_file/3" do
     test "uploads a file successfully" do
       client = Mock.client(&Mock.respond(&1, :file_upload))
@@ -1275,6 +1560,26 @@ defmodule MistralTest do
     test "handles model not found" do
       client = Mock.client(&Mock.respond(&1, 404))
       assert {:error, error} = Mistral.get_model(client, "nonexistent-model")
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "delete_model/2" do
+    test "deletes a model by ID" do
+      client = Mock.client(&Mock.respond(&1, :model_deleted))
+      assert {:ok, res} = Mistral.delete_model(client, "ft:open-mistral-7b:my-model:abc123")
+
+      assert res["id"] == "ft:open-mistral-7b:my-model:abc123"
+      assert res["deleted"] == true
+    end
+
+    test "handles model not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.delete_model(client, "nonexistent-model-id")
+
       assert error.status == 404
       assert error.type == "not_found"
     end
