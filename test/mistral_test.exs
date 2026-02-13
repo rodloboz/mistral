@@ -1735,4 +1735,445 @@ defmodule MistralTest do
       assert res["pages"]
     end
   end
+
+  describe "create_agent/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :agent))
+      {:ok, client: client}
+    end
+
+    test "validates parameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} = Mistral.create_agent(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_agent(client, model: "mistral-large-latest")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.create_agent(client, name: "My Agent")
+    end
+
+    test "creates an agent", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_agent(client,
+                 model: "mistral-large-latest",
+                 name: "My Agent",
+                 instructions: "You are a helpful assistant."
+               )
+
+      assert res["id"] == "ag_abc123"
+      assert res["name"] == "My Agent"
+      assert res["model"] == "mistral-large-latest"
+    end
+
+    test "creates an agent with tools", %{client: client} do
+      assert {:ok, res} =
+               Mistral.create_agent(client,
+                 model: "mistral-large-latest",
+                 name: "My Agent",
+                 tools: [
+                   %{type: "web_search"},
+                   %{
+                     type: "function",
+                     function: %{
+                       name: "get_weather",
+                       description: "Get the weather",
+                       parameters: %{type: "object", properties: %{}}
+                     }
+                   }
+                 ]
+               )
+
+      assert res["id"] == "ag_abc123"
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.create_agent(client,
+                 model: "mistral-large-latest",
+                 name: "My Agent"
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_agents/2" do
+    test "lists agents with no options" do
+      client = Mock.client(&Mock.respond(&1, :agents))
+      assert {:ok, res} = Mistral.list_agents(client)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+      assert res["total"] == 2
+
+      agent = Enum.at(res["data"], 0)
+      assert agent["id"] == "ag_abc123"
+    end
+
+    test "lists agents with filters" do
+      client = Mock.client(&Mock.respond(&1, :agents))
+
+      assert {:ok, res} =
+               Mistral.list_agents(client,
+                 name: "My Agent",
+                 sources: ["api"]
+               )
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "lists agents with pagination" do
+      client = Mock.client(&Mock.respond(&1, :agents))
+      assert {:ok, res} = Mistral.list_agents(client, page: 0, page_size: 10)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 401))
+
+      assert {:error, %Mistral.APIError{} = error} = Mistral.list_agents(client)
+
+      assert error.status == 401
+      assert error.type == "unauthorized"
+    end
+  end
+
+  describe "get_agent/3" do
+    test "retrieves an agent by ID" do
+      client = Mock.client(&Mock.respond(&1, :agent))
+      assert {:ok, res} = Mistral.get_agent(client, "ag_abc123")
+
+      assert res["id"] == "ag_abc123"
+      assert res["name"] == "My Agent"
+      assert res["model"] == "mistral-large-latest"
+    end
+
+    test "retrieves an agent with version option" do
+      client = Mock.client(&Mock.respond(&1, :agent))
+      assert {:ok, res} = Mistral.get_agent(client, "ag_abc123", agent_version: 2)
+
+      assert res["id"] == "ag_abc123"
+    end
+
+    test "handles agent not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_agent(client, "nonexistent-agent-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "update_agent/3" do
+    test "updates an agent" do
+      client = Mock.client(&Mock.respond(&1, :agent))
+
+      assert {:ok, res} =
+               Mistral.update_agent(client, "ag_abc123",
+                 name: "Updated Agent",
+                 instructions: "New instructions."
+               )
+
+      assert res["id"] == "ag_abc123"
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.update_agent(client, "ag_abc123", name: "Updated Agent")
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "delete_agent/2" do
+    test "deletes an agent" do
+      client = Mock.client(&Mock.respond_empty/1)
+      assert {:ok, res} = Mistral.delete_agent(client, "ag_abc123")
+
+      assert res == %{}
+    end
+
+    test "handles agent not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.delete_agent(client, "nonexistent-agent-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "update_agent_version/3" do
+    test "switches agent version" do
+      client = Mock.client(&Mock.respond(&1, :agent))
+
+      assert {:ok, res} = Mistral.update_agent_version(client, "ag_abc123", 2)
+
+      assert res["id"] == "ag_abc123"
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.update_agent_version(client, "ag_abc123", 999)
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_agent_versions/3" do
+    setup do
+      versions = %{
+        "object" => "list",
+        "data" => [
+          %{
+            "id" => "ag_abc123",
+            "version" => 1,
+            "model" => "mistral-large-latest",
+            "created_at" => 1_702_256_327
+          },
+          %{
+            "id" => "ag_abc123",
+            "version" => 2,
+            "model" => "mistral-large-latest",
+            "created_at" => 1_702_256_400
+          }
+        ],
+        "total" => 2
+      }
+
+      Mock.add_mock(:agent_versions, versions)
+      :ok
+    end
+
+    test "lists versions with no options" do
+      client = Mock.client(&Mock.respond(&1, :agent_versions))
+      assert {:ok, res} = Mistral.list_agent_versions(client, "ag_abc123")
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+    end
+
+    test "lists versions with pagination" do
+      client = Mock.client(&Mock.respond(&1, :agent_versions))
+
+      assert {:ok, res} =
+               Mistral.list_agent_versions(client, "ag_abc123", page: 0, page_size: 10)
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.list_agent_versions(client, "nonexistent-agent-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "get_agent_version/3" do
+    test "gets a specific version" do
+      client = Mock.client(&Mock.respond(&1, :agent))
+      assert {:ok, res} = Mistral.get_agent_version(client, "ag_abc123", 2)
+
+      assert res["id"] == "ag_abc123"
+    end
+
+    test "handles version not found" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.get_agent_version(client, "ag_abc123", 999)
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "create_or_update_agent_alias/4" do
+    test "creates an alias" do
+      client = Mock.client(&Mock.respond(&1, :agent_alias))
+
+      assert {:ok, res} =
+               Mistral.create_or_update_agent_alias(client, "ag_abc123", "production", 2)
+
+      assert res["alias"] == "production"
+      assert res["version"] == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.create_or_update_agent_alias(client, "ag_abc123", "production", 999)
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
+
+  describe "list_agent_aliases/2" do
+    test "lists aliases" do
+      client = Mock.client(&Mock.respond(&1, :agent_aliases))
+      assert {:ok, res} = Mistral.list_agent_aliases(client, "ag_abc123")
+
+      assert res["object"] == "list"
+      assert is_list(res["data"])
+      assert length(res["data"]) == 2
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 404))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.list_agent_aliases(client, "nonexistent-agent-id")
+
+      assert error.status == 404
+      assert error.type == "not_found"
+    end
+  end
+
+  describe "agent_completion/2" do
+    setup do
+      client = Mock.client(&Mock.respond(&1, :agent_completion))
+      {:ok, client: client}
+    end
+
+    test "validates parameters", %{client: client} do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.agent_completion(client, [])
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.agent_completion(client, agent_id: "ag_abc123")
+
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Mistral.agent_completion(client,
+                 messages: [%{role: "user", content: "Hello"}]
+               )
+    end
+
+    test "generates a response", %{client: client} do
+      assert {:ok, res} =
+               Mistral.agent_completion(client,
+                 agent_id: "ag_abc123",
+                 messages: [%{role: "user", content: "Hello!"}]
+               )
+
+      assert res["model"] == "mistral-large-latest"
+      assert res["object"] == "chat.completion"
+      assert is_list(res["choices"])
+      choice = Enum.at(res["choices"], 0)
+      assert choice["finish_reason"] == "stop"
+      assert choice["message"]["role"] == "assistant"
+      assert is_binary(choice["message"]["content"])
+    end
+
+    test "streams a response" do
+      client = Mock.client(&Mock.stream(&1, :agent_completion))
+
+      assert {:ok, stream} =
+               Mistral.agent_completion(client,
+                 agent_id: "ag_abc123",
+                 messages: [%{role: "user", content: "Hello!"}],
+                 stream: true
+               )
+
+      res =
+        try do
+          Enum.to_list(stream)
+        rescue
+          e ->
+            flunk("Failed to collect stream: #{inspect(e)}")
+        end
+
+      assert is_list(res)
+      assert res != []
+
+      model_chunk =
+        Enum.find(res, fn chunk ->
+          Map.get(chunk, "model") == "mistral-large-latest"
+        end)
+
+      assert model_chunk != nil
+
+      content_chunk =
+        Enum.find(res, fn chunk ->
+          choices = Map.get(chunk, "choices", [])
+
+          Enum.any?(choices, fn choice ->
+            choice = Map.get(choice, "delta", %{})
+            Map.has_key?(choice, "content")
+          end)
+        end)
+
+      assert content_chunk != nil
+    end
+
+    test "streams to a process" do
+      {:ok, pid} = Mistral.StreamCatcher.start_link()
+      client = Mock.client(&Mock.stream(&1, :agent_completion))
+
+      assert {:ok, task} =
+               Mistral.agent_completion(client,
+                 agent_id: "ag_abc123",
+                 messages: [%{role: "user", content: "Hello!"}],
+                 stream: pid
+               )
+
+      assert match?(%Task{}, task)
+
+      try do
+        Task.await(task, 5000)
+      rescue
+        e ->
+          flunk("Task failed: #{inspect(e)}")
+      end
+
+      chunks = Mistral.StreamCatcher.get_state(pid)
+      assert is_list(chunks)
+      assert chunks != []
+
+      model_chunk =
+        Enum.find(chunks, fn chunk ->
+          Map.get(chunk, "model") == "mistral-large-latest"
+        end)
+
+      assert model_chunk != nil
+
+      GenServer.stop(pid)
+    end
+
+    test "handles API errors" do
+      client = Mock.client(&Mock.respond(&1, 422))
+
+      assert {:error, %Mistral.APIError{} = error} =
+               Mistral.agent_completion(client,
+                 agent_id: "ag_abc123",
+                 messages: [%{role: "user", content: "Hello!"}]
+               )
+
+      assert error.status == 422
+      assert error.type == "unprocessable_entity"
+    end
+  end
 end
