@@ -1005,6 +1005,17 @@ defmodule Mistral do
   Streaming requests automatically disable retries since SSE streams cannot
   be safely replayed.
 
+  ## Cache options
+
+  Optional response caching can be enabled to reduce redundant API calls.
+  Only deterministic, non-streaming endpoints are cached. See `Mistral.Cache`
+  for details.
+
+    * `:cache` - Set to `true` to enable response caching. Defaults to `false`.
+    * `:cache_ttl` - Cache time-to-live in milliseconds. Defaults to `300_000`
+      (5 minutes).
+    * `:cache_table` - ETS table name for the cache. Defaults to `:mistral_cache`.
+
   ## Examples
 
       iex> client = Mistral.init("YOUR_API_KEY")
@@ -1018,10 +1029,19 @@ defmodule Mistral do
 
       iex> client = Mistral.init("YOUR_API_KEY", max_retries: 5)
       %Mistral{}
+
+      iex> client = Mistral.init("YOUR_API_KEY", cache: true)
+      %Mistral{}
+
+      iex> client = Mistral.init("YOUR_API_KEY", cache: true, cache_ttl: 600_000)
+      %Mistral{}
   """
   @spec init(String.t(), keyword()) :: client()
   def init(api_key, opts \\ []) when is_binary(api_key) do
     {headers, opts} = Keyword.pop(opts, :headers, [])
+    {cache, opts} = Keyword.pop(opts, :cache, false)
+    {cache_ttl, opts} = Keyword.pop(opts, :cache_ttl, nil)
+    {cache_table, opts} = Keyword.pop(opts, :cache_table, nil)
 
     req =
       @default_req_opts
@@ -1029,8 +1049,22 @@ defmodule Mistral do
       |> Req.new()
       |> Req.Request.put_header("authorization", "Bearer #{api_key}")
       |> Req.Request.put_headers(headers)
+      |> maybe_attach_cache(cache, cache_ttl, cache_table)
 
     struct(__MODULE__, req: req)
+  end
+
+  defp maybe_attach_cache(req, false, _ttl, _table), do: req
+  defp maybe_attach_cache(req, nil, _ttl, _table), do: req
+
+  defp maybe_attach_cache(req, true, ttl, table) do
+    cache_opts =
+      Enum.reject(
+        [cache_ttl: ttl, cache_table: table],
+        fn {_k, v} -> is_nil(v) end
+      )
+
+    Mistral.Cache.attach(req, cache_opts)
   end
 
   @doc """
